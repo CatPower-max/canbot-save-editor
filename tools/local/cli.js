@@ -56,7 +56,22 @@ async function askNumber(q,min,max){
 }
 async function yes(q){const a=(await ask(`${q} (y/n): `)).toLowerCase();return ['y','yes','ㅛ','예','네','はい','是','好'].includes(a);}
 function stamp(){return new Date().toISOString().replace(/[:.]/g,'-');}
-function backup(name,bytes){const dir=path.join(HOME,'backups');fs.mkdirSync(dir,{recursive:true,mode:0o700});const file=path.join(dir,`${stamp()}-${name}`);fs.writeFileSync(file,bytes,{mode:0o600});return file;}
+// The config file's settings (language, token, presets, backupKeep, extendedLimits), set by main().
+let prefs={};
+// Backups are named "<time>-<region>-<what>", so names sort oldest first. With a backupKeep setting only the newest
+// that many are kept; a "not-confirmed" backup (upload result unknown) is never removed, nor the one just written.
+const BACKUP_KEEP=[0,10,30,100];
+function pruneBackups(dir,keep,justWritten){
+  if(!Number.isSafeInteger(keep)||keep<=0)return 0;
+  let files=[];try{files=fs.readdirSync(dir).filter(f=>/^\d{4}-\d\d-\d\dT/.test(f)).sort();}catch{return 0;}
+  let removed=0;
+  for(const f of files.slice(0,Math.max(0,files.length-keep))){
+    if(f.includes('-not-confirmed')||path.join(dir,f)===justWritten)continue;
+    try{fs.rmSync(path.join(dir,f),{force:true});removed++;}catch{}
+  }
+  return removed;
+}
+function backup(name,bytes){const dir=path.join(HOME,'backups');fs.mkdirSync(dir,{recursive:true,mode:0o700});const file=path.join(dir,`${stamp()}-${name}`);fs.writeFileSync(file,bytes,{mode:0o600});pruneBackups(dir,prefs.backupKeep,file);return file;}
 
 // ---------- canbot.dev ----------
 async function api(token,method,route,body){
@@ -191,25 +206,99 @@ const PENDING_MAX=100;
 // Pending edits: add through the menus (each one is tried on a fresh copy of the SAVE right away, so a problem shows
 // before saving), remove one, clear, save or quit.
 // kept: edits from an earlier pass (backing out of the final "save?" question returns here with them).
-async function editMenu(source,save,gd,hello,names=null,kept=[]){
-  const menus=createMenus({ui:{say,ask,choose,askNumber,yes,L,lang:()=>lang},save,gd,names,policy:hello.policy||{},access:hello.access||{},limits:hello.limits||{}});
+// Extended limits (item and clear-count limits become the field's range) need both the member's role (the server says
+// so in hello.access) and the member's own setting. The owner's caps (hello.limits) apply either way.
+const extendedOn=hello=>prefs.extendedLimits===true&&hello?.access?.canUseExtendedLimits===true;
+const editSettings=extended=>extended?{disable_item_maxes:true}:{};
+// Presets: named lists of edits kept in the config file and added to the pending edits in one step. Each edit of a
+// preset goes through the same checks as one picked from the menus (feature switches, owner caps, a trial on the SAVE).
+const PRESET_MAX=20,PRESET_NAME_MAX=30;
+const presets=()=>Array.isArray(prefs.presets)?prefs.presets.filter(p=>p&&typeof p.name==='string'&&Array.isArray(p.edits)):[];
+function savePresets(list,config){config.presets=list.slice(0,PRESET_MAX);saveConfig(config);}
+async function editMenu(source,save,gd,hello,names=null,kept=[],config=prefs){
+  const extended=extendedOn(hello);
+  const menus=createMenus({ui:{say,ask,choose,askNumber,yes,L,lang:()=>lang},save,gd,names,policy:hello.policy||{},access:hello.access||{},limits:hello.limits||{},extended});
   const edits=[...kept];
+  const tryAdd=edit=>{
+    if(!menus.allowed(edit))throw fail('FEATURE_OFF',L('지금은 쓸 수 없는 기능입니다.','This feature is turned off.','現在は使えない機能です。','此功能目前無法使用。'));
+    ownerLimitCheck(hello.limits,[edit]);
+    const trial=engine.parse(source.raw,source.cc);applyEdits(trial,gd,[...edits,edit],editSettings(extended));
+    edits.push(edit);
+  };
+  const full=()=>{if(edits.length<PENDING_MAX)return false;say(L(`편집은 한 번에 ${PENDING_MAX}개까지입니다.`,`Up to ${PENDING_MAX} edits at a time.`,`編集は一度に${PENDING_MAX}件までです。`,`一次最多 ${PENDING_MAX} 項編輯。`));return true;};
   for(;;){
     say('');say(L('— 대기 중인 편집 —','— Pending edits —','— 保留中の編集 —','— 待處理的編輯 —'));say(edits.length?edits.map((e,i)=>`  ${i+1}. ${menus.describe(e)}`).join('\n'):L('  (없음)','  (none)','  (なし)','  （無）'));
-    let pick;try{pick=await choose(L('무엇을 할까요?','What next?','次はどうしますか？','接下來要做什麼？'),[L('편집 추가','Add an edit','編集を追加','新增編輯'),L('편집 하나 지우기','Remove one edit','編集をひとつ削除','刪除一項編輯'),L('편집 목록 비우기','Clear all edits','編集をすべて削除','清除所有編輯'),L('저장하기','Save','保存','儲存'),L('저장하지 않고 나가기','Quit without saving','保存せずに終了','不儲存並離開')]);}catch(err){if(isBack(err)){backed();return null;}throw err;}
+    if(extended)say(L('  [확장 한도 켜짐]','  [extended limits on]','  [拡張上限オン]','  [擴充上限已開啟]'));
+    const ACTIONS=['add','preset','keep','remove','clear','save','quit'];
+    let pick;try{pick=ACTIONS[await choose(L('무엇을 할까요?','What next?','次はどうしますか？','接下來要做什麼？'),[L('편집 추가','Add an edit','編集を追加','新增編輯'),L('프리셋 불러오기','Load a preset','プリセットを読み込む','載入預設'),L('지금 편집을 프리셋으로 저장','Save these edits as a preset','この編集をプリセットとして保存','將目前的編輯存為預設'),L('편집 하나 지우기','Remove one edit','編集をひとつ削除','刪除一項編輯'),L('편집 목록 비우기','Clear all edits','編集をすべて削除','清除所有編輯'),L('저장하기','Save','保存','儲存'),L('저장하지 않고 나가기','Quit without saving','保存せずに終了','不儲存並離開')])];}catch(err){if(isBack(err)){backed();return null;}throw err;}
     try{
-      if(pick===0){
-        if(edits.length>=PENDING_MAX){say(L(`편집은 한 번에 ${PENDING_MAX}개까지입니다.`,`Up to ${PENDING_MAX} edits at a time.`,`編集は一度に${PENDING_MAX}件までです。`,`一次最多 ${PENDING_MAX} 項編輯。`));continue;}
+      if(pick==='add'){
+        if(full())continue;
         const edit=await menus.pick();if(!edit)continue;
-        ownerLimitCheck(hello.limits,[edit]);
-        const trial=engine.parse(source.raw,source.cc);applyEdits(trial,gd,[...edits,edit],{});
-        edits.push(edit);say(L(`추가: ${menus.describe(edit)}`,`Added: ${menus.describe(edit)}`,`追加: ${menus.describe(edit)}`,`已新增: ${menus.describe(edit)}`));
+        tryAdd(edit);say(L(`추가: ${menus.describe(edit)}`,`Added: ${menus.describe(edit)}`,`追加: ${menus.describe(edit)}`,`已新增: ${menus.describe(edit)}`));
       }
-      else if(pick===1){if(!edits.length)continue;const n=await askNumber(L('지울 편집 번호','Edit number to remove','削除する編集の番号','要刪除的編輯編號'),1,edits.length);const [gone]=edits.splice(n-1,1);say(L(`지움: ${menus.describe(gone)}`,`Removed: ${menus.describe(gone)}`,`削除: ${menus.describe(gone)}`,`已刪除: ${menus.describe(gone)}`));}
-      else if(pick===2)edits.length=0;
-      else if(pick===3){if(!edits.length){say(L('편집이 없습니다.','There are no edits.','編集がありません。','沒有編輯。'));continue;}return {edits,describe:menus.describe};}
+      else if(pick==='preset'){
+        const list=presets();if(!list.length){say(L('저장된 프리셋이 없습니다. 편집을 추가한 뒤 "지금 편집을 프리셋으로 저장"으로 만드세요.','There are no presets. Add edits, then use "Save these edits as a preset".','プリセットがありません。編集を追加してから「この編集をプリセットとして保存」で作成してください。','沒有預設。請先新增編輯，再用「將目前的編輯存為預設」建立。'));continue;}
+        const p=list[await choose(L('불러올 프리셋','Preset to load','読み込むプリセット','要載入的預設'),list.map(x=>`${x.name} (${x.edits.length})`))];
+        let added=0,skipped=0;
+        for(const raw of p.edits){
+          if(full())break;
+          const edit=JSON.parse(JSON.stringify(raw));
+          try{tryAdd(edit);added++;}catch(err){skipped++;say(L(`  건너뜀: ${menus.describe(edit)} (${err.message})`,`  Skipped: ${menus.describe(edit)} (${err.message})`,`  スキップ: ${menus.describe(edit)} (${err.message})`,`  已略過: ${menus.describe(edit)} (${err.message})`));}
+        }
+        say(L(`프리셋 "${p.name}": ${added}개 추가, ${skipped}개 건너뜀`,`Preset "${p.name}": ${added} added, ${skipped} skipped`,`プリセット「${p.name}」: ${added}件追加、${skipped}件スキップ`,`預設「${p.name}」: 已新增 ${added} 項，略過 ${skipped} 項`));
+      }
+      else if(pick==='keep'){
+        if(!edits.length){say(L('편집이 없습니다.','There are no edits.','編集がありません。','沒有編輯。'));continue;}
+        let name='';for(;;){name=(await ask(L(`프리셋 이름 (${PRESET_NAME_MAX}자까지): `,`Preset name (up to ${PRESET_NAME_MAX} characters): `,`プリセット名 (${PRESET_NAME_MAX}文字まで): `,`預設名稱（最多 ${PRESET_NAME_MAX} 字）: `))).replace(/[\x00-\x1f]/g,'');if(name&&[...name].length<=PRESET_NAME_MAX)break;}
+        const list=presets(),at=list.findIndex(x=>x.name===name);
+        if(at>=0&&!(await yes(L(`"${name}" 프리셋을 덮어쓸까요?`,`Replace the preset "${name}"?`,`プリセット「${name}」を上書きしますか？`,`要覆寫預設「${name}」嗎？`))))continue;
+        if(at<0&&list.length>=PRESET_MAX){say(L(`프리셋은 ${PRESET_MAX}개까지입니다. 설정에서 하나 지우세요.`,`Up to ${PRESET_MAX} presets. Delete one in Settings.`,`プリセットは${PRESET_MAX}件までです。設定でひとつ削除してください。`,`預設最多 ${PRESET_MAX} 個。請在設定中刪除一個。`));continue;}
+        const entry={name,cc:source.cc,edits:JSON.parse(JSON.stringify(edits))};
+        if(at>=0)list[at]=entry;else list.push(entry);savePresets(list,config);
+        say(L(`프리셋 "${name}"을(를) 저장했습니다 (${edits.length}개).`,`Saved the preset "${name}" (${edits.length}).`,`プリセット「${name}」を保存しました (${edits.length}件)。`,`已儲存預設「${name}」（${edits.length} 項）。`));
+      }
+      else if(pick==='remove'){if(!edits.length)continue;const n=await askNumber(L('지울 편집 번호','Edit number to remove','削除する編集の番号','要刪除的編輯編號'),1,edits.length);const [gone]=edits.splice(n-1,1);say(L(`지움: ${menus.describe(gone)}`,`Removed: ${menus.describe(gone)}`,`削除: ${menus.describe(gone)}`,`已刪除: ${menus.describe(gone)}`));}
+      else if(pick==='clear')edits.length=0;
+      else if(pick==='save'){if(!edits.length){say(L('편집이 없습니다.','There are no edits.','編集がありません。','沒有編輯。'));continue;}return {edits,describe:menus.describe,extended};}
       else return null;
     }catch(err){if(isBack(err)){backed();continue;}say(L(`추가하지 않았습니다: ${err.message}`,`Not added: ${err.message}`,`追加できませんでした: ${err.message}`,`未新增: ${err.message}`));}
+  }
+}
+
+// ---------- settings ----------
+// Returns 'forgot' when the token was removed (the editor then quits).
+async function settingsMenu(config,hello){
+  for(;;){
+    const keep=Number(config.backupKeep)||0,canExtend=hello?.access?.canUseExtendedLimits===true;
+    const keepText=keep?L(`최근 ${keep}개`,`newest ${keep}`,`新しい順に${keep}件`,`最新 ${keep} 個`):L('전부','all','すべて','全部');
+    const extText=!canExtend?L('역할 필요','needs a role','ロールが必要','需要身分組'):config.extendedLimits===true?L('켜짐','on','オン','開啟'):L('꺼짐','off','オフ','關閉');
+    const SETTINGS=['lang','presets','backups','extended','token','done'];
+    const pick=SETTINGS[await choose(L('설정','Settings','設定','設定'),['Language / 언어 / 言語 / 語言',L(`프리셋 관리 (${presets().length}개)`,`Manage presets (${presets().length})`,`プリセット管理 (${presets().length}件)`,`管理預設（${presets().length} 個）`),L(`백업 보관 개수: ${keepText}`,`Backups to keep: ${keepText}`,`バックアップの保存数: ${keepText}`,`備份保留數量: ${keepText}`),L(`확장 한도: ${extText}`,`Extended limits: ${extText}`,`拡張上限: ${extText}`,`擴充上限: ${extText}`),L('토큰 지우기','Forget token','トークンを削除','刪除權杖'),L('돌아가기','Done','戻る','返回')])];
+    if(pick==='done')return null;
+    // Backing out inside one setting returns to this list; backing out of the list returns to the first menu.
+    try{
+    if(pick==='lang'){await chooseLanguage(config);continue;}
+    if(pick==='token'){if(!(await yes(L('토큰을 지우고 종료할까요?','Forget the token and quit?','トークンを削除して終了しますか？','要刪除權杖並離開嗎？'))))continue;config.token='';saveConfig(config);say(L('토큰을 지웠습니다.','Token removed.','トークンを削除しました。','已刪除權杖。'));return 'forgot';}
+    if(pick==='presets'){
+      const list=presets();if(!list.length){say(L('저장된 프리셋이 없습니다.','There are no presets.','プリセットがありません。','沒有預設。'));continue;}
+      const i=await choose(L('지울 프리셋','Preset to delete','削除するプリセット','要刪除的預設'),list.map(x=>`${x.name} (${(x.cc||'?').toUpperCase()}, ${x.edits.length})`));
+      if(!(await yes(L(`"${list[i].name}" 프리셋을 지울까요?`,`Delete the preset "${list[i].name}"?`,`プリセット「${list[i].name}」を削除しますか？`,`要刪除預設「${list[i].name}」嗎？`))))continue;
+      list.splice(i,1);savePresets(list,config);say(L('지웠습니다.','Deleted.','削除しました。','已刪除。'));continue;
+    }
+    if(pick==='backups'){
+      const i=await choose(L('백업을 몇 개까지 남길까요? (결과를 확인하지 못한 업로드의 백업은 항상 남깁니다)','How many backups to keep? (backups of uploads with an unknown result are always kept)','バックアップを何件まで残しますか？(結果を確認できなかったアップロードのバックアップは常に残します)','要保留多少個備份？（無法確認結果的上傳備份一律保留）'),BACKUP_KEEP.map(n=>n?L(`최근 ${n}개`,`Newest ${n}`,`新しい順に${n}件`,`最新 ${n} 個`):L('전부 남기기','Keep all','すべて残す','全部保留')));
+      config.backupKeep=BACKUP_KEEP[i];saveConfig(config);
+      const removed=pruneBackups(path.join(HOME,'backups'),config.backupKeep,null);
+      if(removed)say(L(`오래된 백업 ${removed}개를 지웠습니다.`,`Removed ${removed} old backups.`,`古いバックアップを${removed}件削除しました。`,`已刪除 ${removed} 個舊備份。`));continue;
+    }
+    if(pick==='extended'){
+      if(!canExtend){say(L('확장 한도는 이를 허용한 역할(후원 등)이 있어야 쓸 수 있습니다.','Extended limits need a role that allows them (such as a supporter role).','拡張上限は、それを許可されたロール(支援者など)が必要です。','擴充上限需要擁有允許的身分組（例如贊助者）。'));continue;}
+      if(config.extendedLimits===true){config.extendedLimits=false;saveConfig(config);say(L('확장 한도를 껐습니다.','Extended limits are off.','拡張上限をオフにしました。','已關閉擴充上限。'));continue;}
+      say(L('확장 한도를 켜면 아이템과 클리어 횟수를 게임 권장값보다 크게 넣을 수 있습니다. 값이 지나치게 크면 게임이나 PONOS 서버가 계정을 이상하게 볼 수 있습니다. 운영자가 정한 상한은 그대로 적용됩니다.','Extended limits let items and clear counts go past the game\'s usual values. Very large values can look wrong to the game or to PONOS. The owner\'s caps still apply.','拡張上限をオンにすると、アイテムやクリア回数を通常の値より大きくできます。値が大きすぎるとゲームやPONOSに不自然と判断されることがあります。運営者の上限はそのまま適用されます。','開啟擴充上限後，道具與通關次數可以超過遊戲的一般數值。數值過大可能被遊戲或 PONOS 視為異常。營運者設定的上限仍然適用。'));
+      if(await yes(L('켤까요?','Turn them on?','オンにしますか？','要開啟嗎？'))){config.extendedLimits=true;saveConfig(config);say(L('확장 한도를 켰습니다.','Extended limits are on.','拡張上限をオンにしました。','已開啟擴充上限。'));}
+    }
+    }catch(err){if(isBack(err)){backed();continue;}throw err;}
   }
 }
 
@@ -232,9 +321,9 @@ function startAccount(source){
   source.account=ponos.account(base,store);source.account.prepare();
 }
 function fresh(source){const save=engine.parse(source.raw,source.cc);if(source.received)ponos.adoptReception(save,source.received);return save;}
-async function saveAndUpload(token,source,edits,gd){
+async function saveAndUpload(token,source,edits,gd,extended=false){
   const save=fresh(source);
-  if(edits.length)applyEdits(save,gd,edits,{});
+  if(edits.length)applyEdits(save,gd,edits,editSettings(extended));
   const out=engine.serialize(save);
   // The written SAVE must read back to the same bytes before it leaves this device.
   if(!engine.serialize(engine.parse(out,source.cc)).equals(out))throw fail('VERIFY',L('편집한 SAVE 확인에 실패했습니다. 저장하지 않았습니다.','The edited SAVE did not verify. Nothing was saved.','編集したセーブの確認に失敗しました。何も保存していません。','編輯後的存檔驗證失敗。未儲存任何內容。'));
@@ -308,7 +397,7 @@ async function chooseLanguage(config){const i=await choose('Language / 언어 / 
 function codesStillValid(source){if(source?.kind==='codes'&&source.received&&!source.uploading)say(L('업로드하지 않았으므로 입력한 인계 코드를 게임에서 그대로 다시 쓸 수 있습니다.','Nothing was uploaded, so the transfer codes you entered still work in the game.','アップロードしていないので、入力した引き継ぎコードはゲームでそのまま使えます。','由於沒有上傳，輸入的引繼碼仍可在遊戲中使用。'));}
 async function main(){
   rl=readline.createInterface({input:process.stdin,output:process.stdout});
-  const config=loadConfig();
+  const config=loadConfig();prefs=config;
   let hello;
   try{
     if(!LANGS.some(x=>x[0]===config.lang))await chooseLanguage(config);
@@ -320,10 +409,9 @@ async function main(){
   say(L(`${hello.user?.name||''}님, 반갑습니다. 남은 저장: ${left}`,`Hello ${hello.user?.name||''}. SAVEs left: ${left}`,`${hello.user?.name||''}さん、こんにちは。残りの保存回数: ${left}`,`${hello.user?.name||''} 你好。剩餘儲存次數: ${left}`));
   for(;;){
     let how;try{how=await choose(L('SAVE를 어디서 가져올까요?','Where is the SAVE?','セーブをどこから読み込みますか？','要從哪裡讀取存檔？'),[L('인계 코드 (루팅 불필요)','Transfer codes (no root needed)','引き継ぎコード (root不要)','引繼碼（不需要 root）'),L('SAVE 파일 (루팅된 기기·에뮬레이터)','SAVE file (rooted phone or emulator)','セーブファイル (root端末・エミュレーター)','存檔檔案（已 root 的手機或模擬器）'),
-      L('PC에 adb로 연결한 기기','Device connected to this PC with adb','このPCにadbで接続した端末','以 adb 連接到這台電腦的裝置'),L('백업에서 복원','Restore a backup','バックアップから復元','從備份還原'),'Language / 언어 / 言語 / 語言',L('토큰 지우기','Forget token','トークンを削除','刪除權杖'),L('종료','Quit','終了','離開')]);}catch(err){if(isBack(err))break;throw err;}
-    if(how===6)break;
-    if(how===5){config.token='';saveConfig(config);say(L('토큰을 지웠습니다.','Token removed.','トークンを削除しました。','已刪除權杖。'));break;}
-    if(how===4){try{await chooseLanguage(config);}catch(err){if(!isBack(err))throw err;}continue;}
+      L('PC에 adb로 연결한 기기','Device connected to this PC with adb','このPCにadbで接続した端末','以 adb 連接到這台電腦的裝置'),L('백업에서 복원','Restore a backup','バックアップから復元','從備份還原'),L('설정 (언어, 프리셋, 백업, 한도, 토큰)','Settings (language, presets, backups, limits, token)','設定 (言語・プリセット・バックアップ・上限・トークン)','設定（語言、預設、備份、上限、權杖）'),L('종료','Quit','終了','離開')]);}catch(err){if(isBack(err))break;throw err;}
+    if(how===5)break;
+    if(how===4){let r=null;try{r=await settingsMenu(config,hello);}catch(err){if(!isBack(err))throw err;}if(r==='forgot')break;continue;}
     let source=null;
     try{
       const cc=REGIONS[await choose(L('게임 지역','Game region','ゲームの地域','遊戲地區'),[L('한국판','Korean','韓国版','韓國版'),L('글로벌(영어)판','Global (English)','グローバル(英語)版','國際（英文）版'),L('일본판','Japanese','日本版','日本版'),L('대만판','Taiwanese','台湾版','台灣版')])];
@@ -340,7 +428,7 @@ async function main(){
       const names=await namesFor(config.token,cc,hello);
       let chosen=null,kept=[],confirmed=false;
       for(;;){
-        chosen=await editMenu(source,save,gd,hello,names,kept);
+        chosen=await editMenu(source,save,gd,hello,names,kept,config);
         if(!chosen)break;
         ownerLimitCheck(hello.limits,chosen.edits);
         say('');chosen.edits.forEach(e=>say(`  - ${chosen.describe(e)}`));
@@ -349,7 +437,7 @@ async function main(){
         catch(err){if(!isBack(err))throw err;kept=chosen.edits;}
       }
       if(!chosen||!confirmed){codesStillValid(source);continue;}
-      source.uploading=true;await saveAndUpload(config.token,source,chosen.edits,gd);
+      source.uploading=true;await saveAndUpload(config.token,source,chosen.edits,gd,chosen.extended);
     }catch(err){
       if(isBack(err)){backed();codesStillValid(source);continue;}
       say(L(`\n오류: ${err.message}`,`\nError: ${err.message}`,`\nエラー: ${err.message}`,`\n錯誤: ${err.message}`));
@@ -359,4 +447,4 @@ async function main(){
   rl.close();
 }
 if(require.main===module)main().catch(err=>{console.error(L(`오류: ${err.message}`,`Error: ${err.message}`,`エラー: ${err.message}`,`錯誤: ${err.message}`));process.exitCode=1;if(rl)rl.close();});
-module.exports={main,ownerLimitCheck,CLIENT};
+module.exports={main,ownerLimitCheck,pruneBackups,CLIENT};

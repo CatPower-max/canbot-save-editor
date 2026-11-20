@@ -7,6 +7,7 @@
 const metadata=require('../../src/canbot-engine/metadata');
 const story=require('../../src/canbot-engine/story');
 const items=require('../../src/canbot-engine/items');
+const engineSettings=require('../../src/canbot-engine/settings');
 const {LABELS}=require('../../src/edit-labels');
 const {editEnabled,maxAccountComponents}=require('../../src/feature-policy');
 
@@ -62,7 +63,10 @@ function parseNumbers(text){
 
 // names: game data of the region that matches the chosen language (or null). Lists are built from the SAVE's own game
 // data and only the names are taken from it, by the same id; anything it does not have keeps its original name.
-function createMenus({ui,save,gd,names=null,policy={},access={},limits={}}){
+// extended: the member's role may use extended limits and they turned them on (item and clear-count limits become the
+// field's integer range, as in the web editor). The owner's caps in `limits` still apply.
+function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extended=false}){
+  const maxed=run=>extended?engineSettings.use({...engineSettings.get(),disableMaxes:true},run):run();
   // ui.lang(): 'ko', 'en', 'ja' or 'zh'. Metadata notes come in Korean and English only; other languages use English.
   const {say,ask,choose,askNumber,yes,L}=ui,lang=()=>typeof ui.lang==='function'?ui.lang():'ko',en=()=>lang()!=='ko';
   const label=key=>{const l=lang();return (l==='ko'?ALL_LABELS[key]:l==='ja'?JA[key]:l==='zh'?ZH[key]:null)||EN[key]||key;};
@@ -76,7 +80,7 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={}}){
     if(Array.isArray(r.rarities)&&Array.isArray(other.rarities)&&r.rarities.length===other.rarities.length)out.rarities=other.rarities;
     return out;
   }
-  const meta=request=>{const r=localize(request,metadata.handle(save,gd,request));if(!r||r.success===false)throw Object.assign(new Error(L('이 SAVE에서는 쓸 수 없는 기능입니다.','This feature is not available for this SAVE.','このセーブでは使えない機能です。','此存檔無法使用這個功能。')),{code:r?.errorCode||'META'});return r;};
+  const meta=request=>{const r=localize(request,maxed(()=>metadata.handle(save,gd,request)));if(!r||r.success===false)throw Object.assign(new Error(L('이 SAVE에서는 쓸 수 없는 기능입니다.','This feature is not available for this SAVE.','このセーブでは使えない機能です。','此存檔無法使用這個功能。')),{code:r?.errorCode||'META'});return r;};
   const allowed=edit=>editEnabled(policy,edit)&&!(['max_all','max_account'].includes(edit.type)&&access.canUseMax===false);
   const ownerCap=(technical,owner)=>Number.isSafeInteger(owner)&&owner>0?Math.min(technical,owner):technical;
 
@@ -128,7 +132,7 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={}}){
   }
   async function itemsMenu(){
     const name=ITEMS[await choose(L('아이템','Item','アイテム','道具'),ITEMS.map(label))];
-    const game=items.limit(save,name);if(game==null)throw new Error(L('이 SAVE에는 없는 항목입니다.','This SAVE does not have this item.','このセーブにはない項目です。','此存檔沒有這個項目。'));
+    const game=maxed(()=>items.limit(save,name));if(game==null)throw new Error(L('이 SAVE에는 없는 항목입니다.','This SAVE does not have this item.','このセーブにはない項目です。','此存檔沒有這個項目。'));
     return {type:'item',item:name,value:await askNumber(label(name),0,ownerCap(game,limits.items?.[name]))};
   }
   async function inventory(){
