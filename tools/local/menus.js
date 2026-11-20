@@ -216,12 +216,17 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={}}){
   ];
   const sections=()=>SECTIONS.filter(([, ,probe])=>probe.type==='item'||probe.type==='inventory'?allowed(probe):probe.type==='collection'?COLLECTIONS.some(c=>allowed({type:'collection',collection:c})):probe.type==='simple'?true:allowed(probe));
   // One edit chosen through the menus, or null when the person backs out.
+  // Backing out inside a section (a BACK error from any prompt) returns to this list; backing out here goes further up.
   async function pick(){
-    const list=sections();const i=await choose(L('무엇을 바꿀까요?','What to change?','何を変更しますか？','要變更什麼？'),[...list.map(s=>s[0]),L('← 돌아가기','← Back','← 戻る','← 返回')]);
-    if(i===list.length)return null;
-    const edit=await list[i][1]();
-    if(edit&&!allowed(edit))throw new Error(L('관리자가 이 기능을 꺼 두었습니다.','This feature is turned off by an administrator.','この機能は管理者により無効になっています。','此功能已被管理員關閉。'));
-    return edit;
+    for(;;){
+      const list=sections();const i=await choose(L('무엇을 바꿀까요?','What to change?','何を変更しますか？','要變更什麼？'),[...list.map(s=>s[0]),L('← 돌아가기','← Back','← 戻る','← 返回')]);
+      if(i===list.length)return null;
+      let edit;
+      try{edit=await list[i][1]();}
+      catch(err){if(err?.code!=='BACK')throw err;say(L('돌아갑니다. 아무것도 바꾸지 않았습니다.','Back. Nothing was changed.','戻ります。何も変更していません。','返回。沒有做任何變更。'));continue;}
+      if(edit&&!allowed(edit))throw new Error(L('관리자가 이 기능을 꺼 두었습니다.','This feature is turned off by an administrator.','この機能は管理者により無効になっています。','此功能已被管理員關閉。'));
+      return edit;
+    }
   }
   function describe(e){
     const n=v=>typeof v==='number'?v.toLocaleString():String(v);

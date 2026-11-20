@@ -40,7 +40,13 @@ const fail=(code,message)=>Object.assign(new Error(message),{code});
 // ---------- small helpers ----------
 function loadConfig(){try{return JSON.parse(fs.readFileSync(CONFIG,'utf8'))||{};}catch{return {};}}
 function saveConfig(c){fs.mkdirSync(HOME,{recursive:true,mode:0o700});fs.writeFileSync(CONFIG,JSON.stringify(c,null,1),{mode:0o600});}
-async function ask(q){return (await rl.question(q)).trim();}
+// Typing one of these at any prompt backs out of the current step without changing anything: a section goes back to
+// the list of sections, that list to the pending edits, the pending edits to the SAVE source menu (nothing uploaded),
+// and the first menu quits. No prompt runs inside the upload step, so backing out never interrupts an upload.
+const BACK_WORDS=new Set(['exit','back','뒤로','취소','戻る','返回']);
+const isBack=err=>err?.code==='BACK';
+async function ask(q){const a=(await rl.question(q)).trim();if(BACK_WORDS.has(a.toLowerCase()))throw fail('BACK','back');return a;}
+const backed=()=>say(L('돌아갑니다. 아무것도 바꾸지 않았습니다.','Back. Nothing was changed.','戻ります。何も変更していません。','返回。沒有做任何變更。'));
 async function choose(title,options){
   say('');say(title);options.forEach((o,i)=>say(`  ${i+1}) ${o}`));
   for(;;){const a=await ask('> ');const n=Number(a);if(Number.isInteger(n)&&n>=1&&n<=options.length)return n-1;say(L('번호를 입력하세요.','Enter a number.','番号を入力してください。','請輸入編號。'));}
@@ -184,12 +190,13 @@ function ownerLimitCheck(limits,edits){
 const PENDING_MAX=100;
 // Pending edits: add through the menus (each one is tried on a fresh copy of the SAVE right away, so a problem shows
 // before saving), remove one, clear, save or quit.
-async function editMenu(source,save,gd,hello,names=null){
+// kept: edits from an earlier pass (backing out of the final "save?" question returns here with them).
+async function editMenu(source,save,gd,hello,names=null,kept=[]){
   const menus=createMenus({ui:{say,ask,choose,askNumber,yes,L,lang:()=>lang},save,gd,names,policy:hello.policy||{},access:hello.access||{},limits:hello.limits||{}});
-  const edits=[];
+  const edits=[...kept];
   for(;;){
     say('');say(L('— 대기 중인 편집 —','— Pending edits —','— 保留中の編集 —','— 待處理的編輯 —'));say(edits.length?edits.map((e,i)=>`  ${i+1}. ${menus.describe(e)}`).join('\n'):L('  (없음)','  (none)','  (なし)','  （無）'));
-    const pick=await choose(L('무엇을 할까요?','What next?','次はどうしますか？','接下來要做什麼？'),[L('편집 추가','Add an edit','編集を追加','新增編輯'),L('편집 하나 지우기','Remove one edit','編集をひとつ削除','刪除一項編輯'),L('편집 목록 비우기','Clear all edits','編集をすべて削除','清除所有編輯'),L('저장하기','Save','保存','儲存'),L('저장하지 않고 나가기','Quit without saving','保存せずに終了','不儲存並離開')]);
+    let pick;try{pick=await choose(L('무엇을 할까요?','What next?','次はどうしますか？','接下來要做什麼？'),[L('편집 추가','Add an edit','編集を追加','新增編輯'),L('편집 하나 지우기','Remove one edit','編集をひとつ削除','刪除一項編輯'),L('편집 목록 비우기','Clear all edits','編集をすべて削除','清除所有編輯'),L('저장하기','Save','保存','儲存'),L('저장하지 않고 나가기','Quit without saving','保存せずに終了','不儲存並離開')]);}catch(err){if(isBack(err)){backed();return null;}throw err;}
     try{
       if(pick===0){
         if(edits.length>=PENDING_MAX){say(L(`편집은 한 번에 ${PENDING_MAX}개까지입니다.`,`Up to ${PENDING_MAX} edits at a time.`,`編集は一度に${PENDING_MAX}件までです。`,`一次最多 ${PENDING_MAX} 項編輯。`));continue;}
@@ -202,7 +209,7 @@ async function editMenu(source,save,gd,hello,names=null){
       else if(pick===2)edits.length=0;
       else if(pick===3){if(!edits.length){say(L('편집이 없습니다.','There are no edits.','編集がありません。','沒有編輯。'));continue;}return {edits,describe:menus.describe};}
       else return null;
-    }catch(err){say(L(`추가하지 않았습니다: ${err.message}`,`Not added: ${err.message}`,`追加できませんでした: ${err.message}`,`未新增: ${err.message}`));}
+    }catch(err){if(isBack(err)){backed();continue;}say(L(`추가하지 않았습니다: ${err.message}`,`Not added: ${err.message}`,`追加できませんでした: ${err.message}`,`未新增: ${err.message}`));}
   }
 }
 
@@ -291,6 +298,7 @@ function banner(){
   say(label(L('웹','Web','ウェブ','網站'),LINKS.web));
   say(label('Discord',LINKS.discord));
   say('');
+  say(L('어디서든 exit (또는 뒤로) 를 입력하면 아무것도 바꾸지 않고 이전 단계로 돌아갑니다.','Type exit (or back) at any prompt to go back a step without changing anything.','どこでも exit (または 戻る) と入力すると、何も変更せずに前の段階へ戻ります。','在任何輸入處輸入 exit（或 返回）即可不做任何變更回到上一步。'));
   say(c('32',L('무료 프로그램입니다. 돈을 요구받았다면 사기입니다.','This program is free. If someone asked you to pay for it, it is a scam.','このプログラムは無料です。お金を求められたら詐欺です。','本程式免費。若有人向你收費，那是詐騙。')));
   say(c('36','-'.repeat(48)));
 }
@@ -301,18 +309,21 @@ function codesStillValid(source){if(source?.kind==='codes'&&source.received&&!so
 async function main(){
   rl=readline.createInterface({input:process.stdin,output:process.stdout});
   const config=loadConfig();
-  if(!LANGS.some(x=>x[0]===config.lang))await chooseLanguage(config);
-  lang=config.lang;
-  banner();
-  const hello=await login(config);
+  let hello;
+  try{
+    if(!LANGS.some(x=>x[0]===config.lang))await chooseLanguage(config);
+    lang=config.lang;
+    banner();
+    hello=await login(config);
+  }catch(err){if(isBack(err)){rl.close();return;}throw err;}
   const left=hello.allowance?.unlimited?L('무제한','unlimited','無制限','無限制'):String(hello.allowance?.remaining??'?');
   say(L(`${hello.user?.name||''}님, 반갑습니다. 남은 저장: ${left}`,`Hello ${hello.user?.name||''}. SAVEs left: ${left}`,`${hello.user?.name||''}さん、こんにちは。残りの保存回数: ${left}`,`${hello.user?.name||''} 你好。剩餘儲存次數: ${left}`));
   for(;;){
-    const how=await choose(L('SAVE를 어디서 가져올까요?','Where is the SAVE?','セーブをどこから読み込みますか？','要從哪裡讀取存檔？'),[L('인계 코드 (루팅 불필요)','Transfer codes (no root needed)','引き継ぎコード (root不要)','引繼碼（不需要 root）'),L('SAVE 파일 (루팅된 기기·에뮬레이터)','SAVE file (rooted phone or emulator)','セーブファイル (root端末・エミュレーター)','存檔檔案（已 root 的手機或模擬器）'),
-      L('PC에 adb로 연결한 기기','Device connected to this PC with adb','このPCにadbで接続した端末','以 adb 連接到這台電腦的裝置'),L('백업에서 복원','Restore a backup','バックアップから復元','從備份還原'),'Language / 언어 / 言語 / 語言',L('토큰 지우기','Forget token','トークンを削除','刪除權杖'),L('종료','Quit','終了','離開')]);
+    let how;try{how=await choose(L('SAVE를 어디서 가져올까요?','Where is the SAVE?','セーブをどこから読み込みますか？','要從哪裡讀取存檔？'),[L('인계 코드 (루팅 불필요)','Transfer codes (no root needed)','引き継ぎコード (root不要)','引繼碼（不需要 root）'),L('SAVE 파일 (루팅된 기기·에뮬레이터)','SAVE file (rooted phone or emulator)','セーブファイル (root端末・エミュレーター)','存檔檔案（已 root 的手機或模擬器）'),
+      L('PC에 adb로 연결한 기기','Device connected to this PC with adb','このPCにadbで接続した端末','以 adb 連接到這台電腦的裝置'),L('백업에서 복원','Restore a backup','バックアップから復元','從備份還原'),'Language / 언어 / 言語 / 語言',L('토큰 지우기','Forget token','トークンを削除','刪除權杖'),L('종료','Quit','終了','離開')]);}catch(err){if(isBack(err))break;throw err;}
     if(how===6)break;
     if(how===5){config.token='';saveConfig(config);say(L('토큰을 지웠습니다.','Token removed.','トークンを削除しました。','已刪除權杖。'));break;}
-    if(how===4){await chooseLanguage(config);continue;}
+    if(how===4){try{await chooseLanguage(config);}catch(err){if(!isBack(err))throw err;}continue;}
     let source=null;
     try{
       const cc=REGIONS[await choose(L('게임 지역','Game region','ゲームの地域','遊戲地區'),[L('한국판','Korean','韓国版','韓國版'),L('글로벌(영어)판','Global (English)','グローバル(英語)版','國際（英文）版'),L('일본판','Japanese','日本版','日本版'),L('대만판','Taiwanese','台湾版','台灣版')])];
@@ -326,13 +337,21 @@ async function main(){
       }
       startAccount(source);
       const gd=await gameData(config.token,cc,version,hello);
-      const chosen=await editMenu(source,save,gd,hello,await namesFor(config.token,cc,hello));
-      if(!chosen){codesStillValid(source);continue;}
-      const edits=chosen.edits;ownerLimitCheck(hello.limits,edits);
-      say('');edits.forEach(e=>say(`  - ${chosen.describe(e)}`));
-      if(!(await yes(L('이대로 저장할까요?','Save these changes?','この内容で保存しますか？','要儲存這些變更嗎？')))){codesStillValid(source);continue;}
-      source.uploading=true;await saveAndUpload(config.token,source,edits,gd);
+      const names=await namesFor(config.token,cc,hello);
+      let chosen=null,kept=[],confirmed=false;
+      for(;;){
+        chosen=await editMenu(source,save,gd,hello,names,kept);
+        if(!chosen)break;
+        ownerLimitCheck(hello.limits,chosen.edits);
+        say('');chosen.edits.forEach(e=>say(`  - ${chosen.describe(e)}`));
+        // Backing out of this question goes back to the pending edits, which are kept.
+        try{confirmed=await yes(L('이대로 저장할까요?','Save these changes?','この内容で保存しますか？','要儲存這些變更嗎？'));break;}
+        catch(err){if(!isBack(err))throw err;kept=chosen.edits;}
+      }
+      if(!chosen||!confirmed){codesStillValid(source);continue;}
+      source.uploading=true;await saveAndUpload(config.token,source,chosen.edits,gd);
     }catch(err){
+      if(isBack(err)){backed();codesStillValid(source);continue;}
       say(L(`\n오류: ${err.message}`,`\nError: ${err.message}`,`\nエラー: ${err.message}`,`\n錯誤: ${err.message}`));
       codesStillValid(source);
     }
