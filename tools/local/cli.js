@@ -19,7 +19,7 @@ const {GameData}=require('../../src/canbot-engine/gamedata');
 const {read:readPack}=require('../../src/canbot-engine/gamedata-pack');
 const {applyEdits}=require('../../src/canbot-engine/apply');
 const {createPonos}=require('../../src/canbot-engine/ponos');
-const {createMenus}=require('./menus');
+const {createMenus,MAX_WORDS}=require('./menus');
 
 const CLIENT=1;
 const SERVER=(process.env.CANBOT_SERVER||'https://canbot.dev').replace(/\/+$/,'');
@@ -47,12 +47,17 @@ const BACK_WORDS=new Set(['exit','back','뒤로','취소','戻る','返回']);
 const isBack=err=>err?.code==='BACK';
 async function ask(q){const a=(await rl.question(q)).trim();if(BACK_WORDS.has(a.toLowerCase()))throw fail('BACK','back');return a;}
 const backed=()=>say(L('돌아갑니다. 아무것도 바꾸지 않았습니다.','Back. Nothing was changed.','戻ります。何も変更していません。','返回。沒有做任何變更。'));
-async function choose(title,options){
-  say('');say(title);options.forEach((o,i)=>say(`  ${i+1}) ${o}`));
-  for(;;){const a=await ask('> ');const n=Number(a);if(Number.isInteger(n)&&n>=1&&n<=options.length)return n-1;say(L('번호를 입력하세요.','Enter a number.','番号を入力してください。','請輸入編號。'));}
+// Numbered choices; 0 goes back a step (the same as typing exit).
+// backLabel: what 0 says (the first menu: Quit).
+async function choose(title,options,backLabel=null){
+  say('');say(title);options.forEach((o,i)=>say(`  ${i+1}) ${o}`));say(`  0) ${backLabel||L('← 돌아가기','← Back','← 戻る','← 返回')}`);
+  for(;;){const a=await ask('> ');if(a==='0')throw fail('BACK','back');const n=Number(a);if(Number.isInteger(n)&&n>=1&&n<=options.length)return n-1;say(L('번호를 입력하세요.','Enter a number.','番号を入力してください。','請輸入編號。'));}
 }
-async function askNumber(q,min,max){
-  for(;;){const a=(await ask(`${q} (${min}~${max}): `)).replace(/,/g,'');const n=Number(a);if(Number.isSafeInteger(n)&&n>=min&&n<=max)return n;say(L('범위 안의 숫자를 입력하세요.','Enter a number in range.','範囲内の数字を入力してください。','請輸入範圍內的數字。'));}
+const fmt=v=>Number(v).toLocaleString('en-US');
+// A number in min..max; max (or all, 최대...) gives the highest value. current: shown when known.
+async function askNumber(q,min,max,{current}={}){
+  const now=Number.isFinite(current)?L(`현재 ${fmt(current)} · `,`now ${fmt(current)} · `,`現在 ${fmt(current)} · `,`目前 ${fmt(current)} · `):'';
+  for(;;){const a=(await ask(`${q} (${now}${fmt(min)}~${fmt(max)}, max): `)).replace(/,/g,'');if(MAX_WORDS.has(a.toLowerCase()))return max;const n=Number(a);if(Number.isSafeInteger(n)&&n>=min&&n<=max)return n;say(L('범위 안의 숫자 또는 max를 입력하세요.','Enter a number in range, or max.','範囲内の数字か max を入力してください。','請輸入範圍內的數字或 max。'));}
 }
 async function yes(q){const a=(await ask(`${q} (y/n): `)).toLowerCase();return ['y','yes','ㅛ','예','네','はい','是','好'].includes(a);}
 function stamp(){return new Date().toISOString().replace(/[:.]/g,'-');}
@@ -109,7 +114,16 @@ async function gameData(token,cc,version,hello){
 }
 
 // ---------- SAVE sources ----------
-const ponos=createPonos({timeoutMs:60000});
+// Each PONOS request is printed with its time while the person waits for one (receiving or uploading a SAVE); the
+// credentials fetched in the background while they edit stay quiet.
+const steps={on:false};
+const STEP_NAMES={RECEIVE:['SAVE 받기','Receive the SAVE','セーブの受け取り','接收存檔'],TOKEN:['인증','Sign-in','認証','驗證'],PASSWORD:['계정 확인','Account check','アカウント確認','帳號確認'],
+  SAVE_KEY:['저장 키','Save key','保存キー','儲存金鑰'],UPLOAD:['SAVE 전송','Send the SAVE','セーブの送信','傳送存檔'],MANAGED_ITEMS:['아이템 변경 신고','Report item changes','アイテム変更の報告','回報道具變更'],TRANSFER:['인계 코드 발급','Issue transfer codes','引き継ぎコードの発行','發行引繼碼']};
+function showStep({step,ms,status}){
+  if(!steps.on)return;const n=STEP_NAMES[step]||[step,step,step,step];
+  say(`  - ${L(...n)} ${(ms/1000).toFixed(1)}${L('초','s','秒','秒')}${status&&status<400?'':` (${status||L('응답 없음','no answer','応答なし','無回應')})`}`);
+}
+const ponos=createPonos({timeoutMs:60000,onStep:showStep});
 // PONOS credentials of one account, kept on this device only (~/.canbot/accounts, 0600) and reused while valid.
 function accountStore(code){
   const dir=path.join(HOME,'accounts'),file=path.join(dir,`${crypto.createHash('sha256').update(String(code)).digest('hex').slice(0,24)}.json`);
@@ -126,8 +140,8 @@ async function fromTransferCodes(cc,hello){
   say(L('PONOS 서버에서 SAVE 받는 중...','Downloading the SAVE from PONOS...','PONOSサーバーからセーブを取得中...','正在從 PONOS 伺服器取得存檔...'));
   // PONOS takes the numeric game version ("15.7.0" -> 150700).
   const [a,b,c]=version.split('.').map(Number);
-  let got;try{got=await ponos.receive(code,pin,cc,a*10000+b*100+c);}
-  catch(err){if(err.code==='NO_CONNECTION')throw fail('PONOS_OFFLINE',L('PONOS 서버에 연결할 수 없습니다.','Cannot reach the PONOS server.','PONOSサーバーに接続できません。','無法連線到 PONOS 伺服器。'));throw fail('CODES',L('코드가 맞지 않거나 이미 사용된 코드입니다. 게임에서 새 코드를 발급받으세요.','The codes are wrong or already used. Issue new codes in the game.','コードが違うか、すでに使われています。ゲームで新しいコードを発行してください。','代碼錯誤或已被使用。請在遊戲中重新發行代碼。'));}
+  let got;steps.on=true;try{got=await ponos.receive(code,pin,cc,a*10000+b*100+c);steps.on=false;}
+  catch(err){steps.on=false;if(err.code==='NO_CONNECTION')throw fail('PONOS_OFFLINE',L('PONOS 서버에 연결할 수 없습니다.','Cannot reach the PONOS server.','PONOSサーバーに接続できません。','無法連線到 PONOS 伺服器。'));throw fail('CODES',L('코드가 맞지 않거나 이미 사용된 코드입니다. 게임에서 새 코드를 발급받으세요.','The codes are wrong or already used. Issue new codes in the game.','コードが違うか、すでに使われています。ゲームで新しいコードを発行してください。','代碼錯誤或已被使用。請在遊戲中重新發行代碼。'));}
   const file=backup(`${cc}-received.sav`,got.bytes);
   say(L(`받은 SAVE 백업: ${file}`,`Received SAVE backed up to: ${file}`,`受け取ったセーブのバックアップ: ${file}`,`已備份收到的存檔: ${file}`));
   return {kind:'codes',cc,raw:got.bytes,received:got};
@@ -215,41 +229,138 @@ const editSettings=extended=>extended?{disable_item_maxes:true}:{};
 const PRESET_MAX=20,PRESET_NAME_MAX=30;
 const presets=()=>Array.isArray(prefs.presets)?prefs.presets.filter(p=>p&&typeof p.name==='string'&&Array.isArray(p.edits)):[];
 function savePresets(list,config){config.presets=list.slice(0,PRESET_MAX);saveConfig(config);}
+// Item names typed directly at the pending edits prompt ("통조림 45000", "xp max", "레어 299 플티 max"), besides the
+// menu labels in the chosen language. Spaces, case, "_" and "-" do not matter.
+const ITEM_ALIASES={catfood:['통조림','캔','고양이캔','cf','food','catfood','ネコカン','猫缶','貓罐頭'],xp:['xp','exp','경험치','가마토토xp'],
+  normal_tickets:['냥코티켓','일반티켓','노멀티켓','nt','normal','normaltickets','cattickets','ネコチケット','貓咪券'],rare_tickets:['레어티켓','레어','rt','rare','raretickets','レアチケット','稀有券'],
+  platinum_tickets:['플래티넘티켓','플티','pt','platinum','platinumtickets','プラチナチケット','白金券'],legend_tickets:['레전드티켓','레전드','lt','legend','legendtickets','レジェンドチケット','傳說券'],
+  platinum_shards:['플래티넘조각','플조','조각','shards','platinumshards','プラチナのかけら','白金碎片'],np:['np'],leadership:['리더십','ld','leadership','リーダーシップ','統率力']};
+const MAX_ALL_WORDS=new Set(['maxall','전부최대','모두최대','すべて最大','全部最大']);
+const normName=s=>String(s).toLowerCase().replace(/[\s_\-·]/g,'');
+// null: not a direct command. {error}: a direct command with a problem. {edits}: item edits.
+function parseDirect(text,rows,label){
+  const t=String(text).trim();if(!t)return null;
+  if(MAX_ALL_WORDS.has(normName(t)))return {edits:[{type:'max_all'}]};
+  const byName=new Map();for(const r of rows)for(const a of [...(ITEM_ALIASES[r.name]||[]),r.name,label(r.name)])byName.set(normName(a),r);
+  const re=/([^\d\s,][^\d]*?)\s*(max|all|최대|전부|最大|全部|すべて|\d[\d,]*)(?=\s|$)/gi,found=[];let m;
+  while((m=re.exec(t)))found.push(m);
+  if(!found.length||t.replace(re,'').trim())return null;
+  const edits=[];
+  for(const [,name,raw] of found){
+    const r=byName.get(normName(name));if(!r)return {error:L(`"${name.trim()}"은(는) 아이템 이름이 아닙니다.`,`"${name.trim()}" is not an item name.`,`「${name.trim()}」はアイテム名ではありません。`,`「${name.trim()}」不是道具名稱。`)};
+    const v=MAX_WORDS.has(raw.toLowerCase())?r.max:Number(raw.replace(/,/g,''));
+    if(!Number.isSafeInteger(v)||v<0||v>r.max)return {error:L(`${label(r.name)}은(는) 0~${fmt(r.max)}까지입니다.`,`${label(r.name)} goes from 0 to ${fmt(r.max)}.`,`${label(r.name)}は0~${fmt(r.max)}までです。`,`${label(r.name)} 的範圍是 0~${fmt(r.max)}。`)};
+    edits.push({type:'item',item:r.name,value:v});
+  }
+  return {edits};
+}
+// Engine error codes in the chosen language; anything else keeps its own message.
+function explain(err){
+  const range=/between (\d+) and (\d+)/.exec(String(err?.message||''));
+  const code=String(err?.code||'');
+  if(range&&['ITEM_VALUE_OUT_OF_RANGE','INVALID_INPUT'].includes(code))return L(`값은 ${fmt(range[1])}~${fmt(range[2])} 사이여야 합니다.`,`The value must be from ${fmt(range[1])} to ${fmt(range[2])}.`,`値は${fmt(range[1])}~${fmt(range[2])}の範囲で入力してください。`,`數值必須介於 ${fmt(range[1])}~${fmt(range[2])}。`);
+  const levels=L('그 레벨까지 올릴 수 없는 고양이가 있습니다.','Some cats cannot reach that level.','そのレベルまで上げられないキャラがいます。','有角色無法提升到該等級。');
+  const known={
+    ITEM_UNSUPPORTED_VERSION:L('이 게임 버전에는 없는 항목입니다.','This game version does not have this item.','このゲームバージョンにはない項目です。','此遊戲版本沒有這個項目。'),
+    STORAGE_CAPACITY:L('보관함 칸이 부족합니다.','There is not enough storage space.','ネコ部屋(保管庫)の空きが足りません。','保管庫空間不足。'),
+    CAT_LEVEL_LIMIT:levels,CAT_LEVEL_UNREACHABLE:levels,
+    CAT_FORM_UNSUPPORTED:L('그 형태가 없는 고양이가 있습니다.','Some cats do not have that form.','その形態がないキャラがいます。','有角色沒有該型態。'),
+    ACCOUNT_REGION_MISMATCH:L('SAVE 지역이 맞지 않습니다.','The SAVE is from another region.','セーブの地域が合いません。','存檔地區不符。'),
+  };
+  if(known[code])return known[code];
+  if(/^STORY_/.test(code))return L('이 SAVE의 스토리 구조에서는 쓸 수 없습니다.','This does not fit the story data of this SAVE.','このセーブのストーリーデータでは使えません。','此存檔的故事資料無法使用。');
+  return err?.message||String(err);
+}
+const HELP_KO=[
+  '명령',
+  '  Enter          편집 추가 (메뉴에서 고르기, 다 고르면 0)',
+  '  통조림 45000    바로 입력. 여러 개도 됨: 레어 299 플티 max',
+  '  maxall         전부 최대',
+  '  s              저장하기',
+  '  p / p+         프리셋 불러오기 / 지금 편집을 프리셋으로 저장',
+  '  d 2            2번 편집 지우기 (d만 쓰면 번호를 물어봄)',
+  '  c              편집 목록 비우기',
+  '  0 또는 q       저장하지 않고 나가기',
+  '  숫자를 묻는 곳에서는 max 를 쓰면 최대값이 들어갑니다.'].join('\n');
+const HELP_EN=[
+  'Commands',
+  '  Enter            add an edit (pick from the menus; 0 when done)',
+  '  catfood 45000    type it directly; several work too: rare 299 platinum max',
+  '  maxall           Max All',
+  '  s                save',
+  '  p / p+           load a preset / save these edits as a preset',
+  '  d 2              remove edit 2 (d alone asks which)',
+  '  c                clear all edits',
+  '  0 or q           quit without saving',
+  '  At any number prompt, max enters the highest value.'].join('\n');
+const HELP_JA=[
+  'コマンド',
+  '  Enter            編集を追加 (メニューから選ぶ。終わったら 0)',
+  '  ネコカン 45000    直接入力。複数も可: レア 299 プラチナ max',
+  '  maxall           すべて最大',
+  '  s                保存',
+  '  p / p+           プリセットを読み込む / この編集をプリセットとして保存',
+  '  d 2              2番の編集を削除 (d だけなら番号を聞きます)',
+  '  c                編集をすべて削除',
+  '  0 または q       保存せずに終了',
+  '  数字を聞かれたところで max と入力すると最大値になります。'].join('\n');
+const HELP_ZH=[
+  '指令',
+  '  Enter            新增編輯（從選單選擇，完成後輸入 0）',
+  '  貓罐頭 45000      直接輸入。也可以一次多個: 稀有券 299 白金券 max',
+  '  maxall           全部最大',
+  '  s                儲存',
+  '  p / p+           載入預設 / 將目前的編輯存為預設',
+  '  d 2              刪除第 2 項編輯（只輸入 d 會詢問編號）',
+  '  c                清除所有編輯',
+  '  0 或 q           不儲存並離開',
+  '  在要求輸入數字的地方輸入 max 即為最大值。'].join('\n');
 async function editMenu(source,save,gd,hello,names=null,kept=[],config=prefs){
   const extended=extendedOn(hello);
   const menus=createMenus({ui:{say,ask,choose,askNumber,yes,L,lang:()=>lang},save,gd,names,policy:hello.policy||{},access:hello.access||{},limits:hello.limits||{},extended});
   const edits=[...kept];
-  const tryAdd=edit=>{
-    if(!menus.allowed(edit))throw fail('FEATURE_OFF',L('지금은 쓸 수 없는 기능입니다.','This feature is turned off.','現在は使えない機能です。','此功能目前無法使用。'));
-    ownerLimitCheck(hello.limits,[edit]);
-    const trial=engine.parse(source.raw,source.cc);applyEdits(trial,gd,[...edits,edit],editSettings(extended));
-    edits.push(edit);
+  // Edits picked together are added together: each is checked, then all of them are tried on the SAVE at once.
+  const tryAdd=list=>{
+    list=[].concat(list);
+    if(edits.length+list.length>PENDING_MAX)throw fail('PENDING_MAX',L(`편집은 한 번에 ${PENDING_MAX}개까지입니다.`,`Up to ${PENDING_MAX} edits at a time.`,`編集は一度に${PENDING_MAX}件までです。`,`一次最多 ${PENDING_MAX} 項編輯。`));
+    for(const edit of list)if(!menus.allowed(edit))throw fail('FEATURE_OFF',L('지금은 쓸 수 없는 기능입니다.','This feature is turned off.','現在は使えない機能です。','此功能目前無法使用。'));
+    ownerLimitCheck(hello.limits,list);
+    const trial=engine.parse(source.raw,source.cc);applyEdits(trial,gd,[...edits,...list],editSettings(extended));
+    edits.push(...list);for(const e of list)say(L(`추가: ${menus.describe(e)}`,`Added: ${menus.describe(e)}`,`追加: ${menus.describe(e)}`,`已新增: ${menus.describe(e)}`));
   };
-  const full=()=>{if(edits.length<PENDING_MAX)return false;say(L(`편집은 한 번에 ${PENDING_MAX}개까지입니다.`,`Up to ${PENDING_MAX} edits at a time.`,`編集は一度に${PENDING_MAX}件までです。`,`一次最多 ${PENDING_MAX} 項編輯。`));return true;};
+  const notAdded=err=>say(L(`추가하지 않았습니다: ${explain(err)}`,`Not added: ${explain(err)}`,`追加できませんでした: ${explain(err)}`,`未新增: ${explain(err)}`));
+  const none=()=>say(L('편집이 없습니다.','There are no edits.','編集がありません。','沒有編輯。'));
+  const help=()=>say(L(HELP_KO,HELP_EN,HELP_JA,HELP_ZH));
+  let first=true;
   for(;;){
-    say('');say(L('— 대기 중인 편집 —','— Pending edits —','— 保留中の編集 —','— 待處理的編輯 —'));say(edits.length?edits.map((e,i)=>`  ${i+1}. ${menus.describe(e)}`).join('\n'):L('  (없음)','  (none)','  (なし)','  （無）'));
+    say('');say(L(`— 대기 중인 편집 (${edits.length}) —`,`— Pending edits (${edits.length}) —`,`— 保留中の編集 (${edits.length}) —`,`— 待處理的編輯 (${edits.length}) —`));
+    if(edits.length)say(edits.map((e,i)=>`  ${i+1}. ${menus.describe(e)}`).join('\n'));
     if(extended)say(L('  [확장 한도 켜짐]','  [extended limits on]','  [拡張上限オン]','  [擴充上限已開啟]'));
-    const ACTIONS=['add','preset','keep','remove','clear','save','quit'];
-    let pick;try{pick=ACTIONS[await choose(L('무엇을 할까요?','What next?','次はどうしますか？','接下來要做什麼？'),[L('편집 추가','Add an edit','編集を追加','新增編輯'),L('프리셋 불러오기','Load a preset','プリセットを読み込む','載入預設'),L('지금 편집을 프리셋으로 저장','Save these edits as a preset','この編集をプリセットとして保存','將目前的編輯存為預設'),L('편집 하나 지우기','Remove one edit','編集をひとつ削除','刪除一項編輯'),L('편집 목록 비우기','Clear all edits','編集をすべて削除','清除所有編輯'),L('저장하기','Save','保存','儲存'),L('저장하지 않고 나가기','Quit without saving','保存せずに終了','不儲存並離開')])];}catch(err){if(isBack(err)){backed();return null;}throw err;}
+    if(first){help();first=false;}
+    else say(L('Enter 편집 추가 · s 저장 · ? 도움말 · 0 나가기 · 바로 입력: 통조림 45000','Enter add · s save · ? help · 0 quit · or type: catfood 45000','Enter 追加 · s 保存 · ? ヘルプ · 0 終了 · 直接入力: ネコカン 45000','Enter 新增 · s 儲存 · ? 說明 · 0 離開 · 直接輸入: 貓罐頭 45000'));
+    let a;try{a=await ask('> ');}catch(err){if(isBack(err)){backed();return null;}throw err;}
+    const cmd=a.toLowerCase();
     try{
-      if(pick==='add'){
-        if(full())continue;
-        const edit=await menus.pick();if(!edit)continue;
-        tryAdd(edit);say(L(`추가: ${menus.describe(edit)}`,`Added: ${menus.describe(edit)}`,`追加: ${menus.describe(edit)}`,`已新增: ${menus.describe(edit)}`));
+      if(cmd===''||cmd==='a'||cmd==='+'){
+        // Keep picking until the person backs out of the section list.
+        for(;;){let edit;try{edit=await menus.pick();}catch(err){if(isBack(err))break;throw err;}if(!edit)continue;
+          try{tryAdd(edit);}catch(err){notAdded(err);}}
       }
-      else if(pick==='preset'){
-        const list=presets();if(!list.length){say(L('저장된 프리셋이 없습니다. 편집을 추가한 뒤 "지금 편집을 프리셋으로 저장"으로 만드세요.','There are no presets. Add edits, then use "Save these edits as a preset".','プリセットがありません。編集を追加してから「この編集をプリセットとして保存」で作成してください。','沒有預設。請先新增編輯，再用「將目前的編輯存為預設」建立。'));continue;}
+      else if(cmd==='s'){if(!edits.length){none();continue;}return {edits,describe:menus.describe,extended};}
+      else if(cmd==='q'||cmd==='0'){if(edits.length&&!(await yes(L(`편집 ${edits.length}개를 저장하지 않고 나갈까요?`,`Quit without saving ${edits.length} edits?`,`${edits.length}件の編集を保存せずに終了しますか？`,`要放棄 ${edits.length} 項編輯並離開嗎？`))))continue;return null;}
+      else if(cmd==='?'||cmd==='h'||cmd==='help')help();
+      else if(cmd==='p'){
+        const list=presets();if(!list.length){say(L('저장된 프리셋이 없습니다. 편집을 추가한 뒤 p+ 로 만드세요.','There are no presets. Add edits, then use p+.','プリセットがありません。編集を追加してから p+ で作成してください。','沒有預設。請先新增編輯，再用 p+ 建立。'));continue;}
         const p=list[await choose(L('불러올 프리셋','Preset to load','読み込むプリセット','要載入的預設'),list.map(x=>`${x.name} (${x.edits.length})`))];
         let added=0,skipped=0;
         for(const raw of p.edits){
-          if(full())break;
           const edit=JSON.parse(JSON.stringify(raw));
-          try{tryAdd(edit);added++;}catch(err){skipped++;say(L(`  건너뜀: ${menus.describe(edit)} (${err.message})`,`  Skipped: ${menus.describe(edit)} (${err.message})`,`  スキップ: ${menus.describe(edit)} (${err.message})`,`  已略過: ${menus.describe(edit)} (${err.message})`));}
+          try{tryAdd(edit);added++;}catch(err){skipped++;say(L(`  건너뜀: ${menus.describe(edit)} (${explain(err)})`,`  Skipped: ${menus.describe(edit)} (${explain(err)})`,`  スキップ: ${menus.describe(edit)} (${explain(err)})`,`  已略過: ${menus.describe(edit)} (${explain(err)})`));}
         }
         say(L(`프리셋 "${p.name}": ${added}개 추가, ${skipped}개 건너뜀`,`Preset "${p.name}": ${added} added, ${skipped} skipped`,`プリセット「${p.name}」: ${added}件追加、${skipped}件スキップ`,`預設「${p.name}」: 已新增 ${added} 項，略過 ${skipped} 項`));
       }
-      else if(pick==='keep'){
-        if(!edits.length){say(L('편집이 없습니다.','There are no edits.','編集がありません。','沒有編輯。'));continue;}
+      else if(cmd==='p+'){
+        if(!edits.length){none();continue;}
         let name='';for(;;){name=(await ask(L(`프리셋 이름 (${PRESET_NAME_MAX}자까지): `,`Preset name (up to ${PRESET_NAME_MAX} characters): `,`プリセット名 (${PRESET_NAME_MAX}文字まで): `,`預設名稱（最多 ${PRESET_NAME_MAX} 字）: `))).replace(/[\x00-\x1f]/g,'');if(name&&[...name].length<=PRESET_NAME_MAX)break;}
         const list=presets(),at=list.findIndex(x=>x.name===name);
         if(at>=0&&!(await yes(L(`"${name}" 프리셋을 덮어쓸까요?`,`Replace the preset "${name}"?`,`プリセット「${name}」を上書きしますか？`,`要覆寫預設「${name}」嗎？`))))continue;
@@ -258,11 +369,19 @@ async function editMenu(source,save,gd,hello,names=null,kept=[],config=prefs){
         if(at>=0)list[at]=entry;else list.push(entry);savePresets(list,config);
         say(L(`프리셋 "${name}"을(를) 저장했습니다 (${edits.length}개).`,`Saved the preset "${name}" (${edits.length}).`,`プリセット「${name}」を保存しました (${edits.length}件)。`,`已儲存預設「${name}」（${edits.length} 項）。`));
       }
-      else if(pick==='remove'){if(!edits.length)continue;const n=await askNumber(L('지울 편집 번호','Edit number to remove','削除する編集の番号','要刪除的編輯編號'),1,edits.length);const [gone]=edits.splice(n-1,1);say(L(`지움: ${menus.describe(gone)}`,`Removed: ${menus.describe(gone)}`,`削除: ${menus.describe(gone)}`,`已刪除: ${menus.describe(gone)}`));}
-      else if(pick==='clear')edits.length=0;
-      else if(pick==='save'){if(!edits.length){say(L('편집이 없습니다.','There are no edits.','編集がありません。','沒有編輯。'));continue;}return {edits,describe:menus.describe,extended};}
-      else return null;
-    }catch(err){if(isBack(err)){backed();continue;}say(L(`추가하지 않았습니다: ${err.message}`,`Not added: ${err.message}`,`追加できませんでした: ${err.message}`,`未新增: ${err.message}`));}
+      else if(/^d\s*\d*$/.test(cmd)){
+        if(!edits.length){none();continue;}
+        const given=Number(cmd.slice(1).trim()),n=Number.isInteger(given)&&given>=1&&given<=edits.length?given:await askNumber(L('지울 편집 번호','Edit number to remove','削除する編集の番号','要刪除的編輯編號'),1,edits.length);
+        const [gone]=edits.splice(n-1,1);say(L(`지움: ${menus.describe(gone)}`,`Removed: ${menus.describe(gone)}`,`削除: ${menus.describe(gone)}`,`已刪除: ${menus.describe(gone)}`));
+      }
+      else if(cmd==='c'){if(edits.length&&await yes(L(`편집 ${edits.length}개를 모두 지울까요?`,`Clear all ${edits.length} edits?`,`${edits.length}件の編集をすべて削除しますか？`,`要清除全部 ${edits.length} 項編輯嗎？`)))edits.length=0;}
+      else{
+        const direct=parseDirect(a,menus.itemRows(),menus.label);
+        if(!direct)say(L('알 수 없는 명령입니다. ? 를 입력하면 도움말이 나옵니다.','Unknown command. Type ? for help.','不明なコマンドです。? でヘルプを表示します。','未知的指令。輸入 ? 查看說明。'));
+        else if(direct.error)say(direct.error);
+        else tryAdd(direct.edits);
+      }
+    }catch(err){if(isBack(err)){backed();continue;}notAdded(err);}
   }
 }
 
@@ -340,18 +459,21 @@ async function saveAndUpload(token,source,edits,gd,extended=false){
   if(!source.account)startAccount(source);
   say(L('PONOS 서버에 업로드 중...','Uploading to PONOS...','PONOSにアップロード中...','正在上傳到 PONOS...'));
   // Credentials and the save key first (nothing is uploaded yet), then the SAVE is counted and sent.
+  steps.on=true;
   try{await source.account.ready();}
-  catch(err){source.account=null;throw fail('PONOS_AUTH',L(`PONOS 인증에 실패했습니다 (${err.code||'?'}). 아무것도 업로드하지 않았습니다.`,`PONOS sign-in failed (${err.code||'?'}). Nothing was uploaded.`,`PONOSの認証に失敗しました (${err.code||'?'})。何もアップロードしていません。`,`PONOS 驗證失敗 (${err.code||'?'})。未上傳任何內容。`));}
-  const operationId=await reserve(token,'codes',edits,source.restored);
+  catch(err){steps.on=false;source.account=null;throw fail('PONOS_AUTH',L(`PONOS 인증에 실패했습니다 (${err.code||'?'}). 아무것도 업로드하지 않았습니다.`,`PONOS sign-in failed (${err.code||'?'}). Nothing was uploaded.`,`PONOSの認証に失敗しました (${err.code||'?'})。何もアップロードしていません。`,`PONOS 驗證失敗 (${err.code||'?'})。未上傳任何內容。`));}
+  const operationId=await reserve(token,'codes',edits,source.restored).catch(err=>{steps.on=false;throw err;});
   const started=Date.now();let codes;
   try{codes=await source.account.upload(save,engine.serialize);}
   catch(err){
+    steps.on=false;
     backup(`${source.cc}-not-confirmed.sav`,out);
     await finish(token,operationId,'codes','uncertain');
     if(!err.uploadPossible){source.uploading=false;throw fail('PONOS_UPLOAD',L(`업로드하지 못했습니다 (${err.step}: ${err.code}). PONOS에는 아무것도 바뀌지 않았습니다.`,`Upload failed (${err.step}: ${err.code}). Nothing changed at PONOS.`,`アップロードできませんでした (${err.step}: ${err.code})。PONOS側は何も変わっていません。`,`上傳失敗 (${err.step}: ${err.code})。PONOS 端沒有任何變更。`));}
     say(L('\n업로드 결과를 확인할 수 없습니다. 자동으로 다시 시도하지 않습니다.\n편집된 SAVE는 ~/.canbot/backups 에 있습니다. 깡통봇 디스코드에 문의하세요.','\nThe upload result is unknown. It is not retried automatically.\nThe edited SAVE is in ~/.canbot/backups. Ask in the CanBot Discord.','\nアップロードの結果を確認できません。自動で再試行はしません。\n編集したセーブは ~/.canbot/backups にあります。CanBotのDiscordでお問い合わせください。','\n無法確認上傳結果。不會自動重試。\n編輯後的存檔在 ~/.canbot/backups。請到 CanBot 的 Discord 詢問。'));
     return;
   }
+  steps.on=false;
   backup(`${source.cc}-uploaded.sav`,codes.bytes);
   await finish(token,operationId,'codes','committed');
   say('');say('========================================');
@@ -409,8 +531,7 @@ async function main(){
   say(L(`${hello.user?.name||''}님, 반갑습니다. 남은 저장: ${left}`,`Hello ${hello.user?.name||''}. SAVEs left: ${left}`,`${hello.user?.name||''}さん、こんにちは。残りの保存回数: ${left}`,`${hello.user?.name||''} 你好。剩餘儲存次數: ${left}`));
   for(;;){
     let how;try{how=await choose(L('SAVE를 어디서 가져올까요?','Where is the SAVE?','セーブをどこから読み込みますか？','要從哪裡讀取存檔？'),[L('인계 코드 (루팅 불필요)','Transfer codes (no root needed)','引き継ぎコード (root不要)','引繼碼（不需要 root）'),L('SAVE 파일 (루팅된 기기·에뮬레이터)','SAVE file (rooted phone or emulator)','セーブファイル (root端末・エミュレーター)','存檔檔案（已 root 的手機或模擬器）'),
-      L('PC에 adb로 연결한 기기','Device connected to this PC with adb','このPCにadbで接続した端末','以 adb 連接到這台電腦的裝置'),L('백업에서 복원','Restore a backup','バックアップから復元','從備份還原'),L('설정 (언어, 프리셋, 백업, 한도, 토큰)','Settings (language, presets, backups, limits, token)','設定 (言語・プリセット・バックアップ・上限・トークン)','設定（語言、預設、備份、上限、權杖）'),L('종료','Quit','終了','離開')]);}catch(err){if(isBack(err))break;throw err;}
-    if(how===5)break;
+      L('PC에 adb로 연결한 기기','Device connected to this PC with adb','このPCにadbで接続した端末','以 adb 連接到這台電腦的裝置'),L('백업에서 복원','Restore a backup','バックアップから復元','從備份還原'),L('설정 (언어, 프리셋, 백업, 한도, 토큰)','Settings (language, presets, backups, limits, token)','設定 (言語・プリセット・バックアップ・上限・トークン)','設定（語言、預設、備份、上限、權杖）')],L('종료','Quit','終了','離開'));}catch(err){if(isBack(err))break;throw err;}
     if(how===4){let r=null;try{r=await settingsMenu(config,hello);}catch(err){if(!isBack(err))throw err;}if(r==='forgot')break;continue;}
     let source=null;
     try{
@@ -440,11 +561,11 @@ async function main(){
       source.uploading=true;await saveAndUpload(config.token,source,chosen.edits,gd,chosen.extended);
     }catch(err){
       if(isBack(err)){backed();codesStillValid(source);continue;}
-      say(L(`\n오류: ${err.message}`,`\nError: ${err.message}`,`\nエラー: ${err.message}`,`\n錯誤: ${err.message}`));
+      say(L(`\n오류: ${explain(err)}`,`\nError: ${explain(err)}`,`\nエラー: ${explain(err)}`,`\n錯誤: ${explain(err)}`));
       codesStillValid(source);
     }
   }
   rl.close();
 }
 if(require.main===module)main().catch(err=>{console.error(L(`오류: ${err.message}`,`Error: ${err.message}`,`エラー: ${err.message}`,`錯誤: ${err.message}`));process.exitCode=1;if(rl)rl.close();});
-module.exports={main,ownerLimitCheck,pruneBackups,CLIENT};
+module.exports={main,ownerLimitCheck,pruneBackups,parseDirect,explain,CLIENT};

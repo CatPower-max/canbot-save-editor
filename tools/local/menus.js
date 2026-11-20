@@ -11,6 +11,9 @@ const engineSettings=require('../../src/canbot-engine/settings');
 const {LABELS}=require('../../src/edit-labels');
 const {editEnabled,maxAccountComponents}=require('../../src/feature-policy');
 
+// Typed at a number prompt: the highest value allowed.
+const MAX_WORDS=new Set(['max','all','최대','전부','최댓값','最大','全部','すべて']);
+const fmt=v=>typeof v==='number'?v.toLocaleString('en-US'):String(v);
 const ITEMS=['catfood','xp','normal_tickets','rare_tickets','platinum_tickets','legend_tickets','platinum_shards','np','leadership'];
 const EN={catfood:'Cat Food',xp:'XP',normal_tickets:'Cat Tickets',rare_tickets:'Rare Tickets',platinum_tickets:'Platinum Tickets',legend_tickets:'Legend Tickets',platinum_shards:'Platinum Shards',np:'NP',leadership:'Leadership',
   unlock:'Unlock',remove:'Remove',set_level:'Set level',max_upgrade:'Max upgrade',max_base_plus:'Max base and plus',upgrade_by:'Level up by',true_form:'True form',fourth_form:'Ultra form',remove_true_form:'Remove true form',remove_fourth_form:'Remove ultra form',
@@ -101,39 +104,91 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
   }
   // Stage numbers as people count them (1..count), returned 0-based. Enter = whole.
   async function pickStages(count){
-    say(L(`스테이지: Enter = 전부, 또는 번호 (1~${count}, 예: 1-10, 15)`,`Stages: Enter = all, or numbers (1-${count}, e.g. 1-10, 15)`,`ステージ: Enter = すべて、または番号 (1~${count}、例: 1-10, 15)`,`關卡: Enter = 全部，或輸入編號 (1~${count}，例: 1-10, 15)`));
-    for(;;){const a=await ask('> ');if(!a)return {mode:'whole',stages:[]};const n=parseNumbers(a);if(n&&n.every(x=>x>=1&&x<=count))return {mode:'specific',stages:n.map(x=>x-1)};say(L('범위 안의 번호를 입력하세요.','Enter numbers in range.','範囲内の番号を入力してください。','請輸入範圍內的編號。'));}
+    say(L(`스테이지: Enter 또는 all = 전부, 또는 번호 (1~${count}, 예: 1-10, 15)`,`Stages: Enter = all, or numbers (1-${count}, e.g. 1-10, 15)`,`ステージ: Enter = すべて、または番号 (1~${count}、例: 1-10, 15)`,`關卡: Enter = 全部，或輸入編號 (1~${count}，例: 1-10, 15)`));
+    for(;;){const a=await ask('> ');if(!a||a.toLowerCase()==='all')return {mode:'whole',stages:[]};const n=parseNumbers(a);if(n&&n.every(x=>x>=1&&x<=count))return {mode:'specific',stages:n.map(x=>x-1)};say(L('범위 안의 번호를 입력하세요.','Enter numbers in range.','範囲内の番号を入力してください。','請輸入範圍內的編號。'));}
   }
 
-  async function catTargets(){
-    const modes=['all','unlocked','not_unlocked','obtainable','ids','name','rarity'];
-    const i=await choose(L('어떤 고양이?','Which cats?','どのキャラ？','哪些角色？'),[L('전부','All','すべて','全部'),L('보유한 고양이','Owned','所持しているキャラ','已擁有的角色'),L('보유하지 않은 고양이','Not owned','所持していないキャラ','未擁有的角色'),L('획득 가능한 고양이','Obtainable','入手可能なキャラ','可取得的角色'),L('번호로 (예: 0-10, 25)','By id (e.g. 0-10, 25)','番号で (例: 0-10, 25)','依編號（例: 0-10, 25）'),L('이름으로 찾기','By name','名前で検索','依名稱搜尋'),L('희귀도로','By rarity','レアリティで','依稀有度')]);
-    let value='';
-    if(modes[i]==='ids')value=await ask(L('고양이 번호: ','Cat ids: ','キャラ番号: ','角色編號: '));
-    if(modes[i]==='name')value=await ask(L('이름 (일부만 써도 됩니다): ','Name (part is fine): ','名前 (一部でもOK): ','名稱（輸入部分即可）: '));
-    if(modes[i]==='rarity'){const info=meta({action:'cat_selector',mode:'selector_info'});const r=await choose(L('희귀도','Rarity','レアリティ','稀有度'),info.rarities);value=String(r);}
-    const r=meta({action:'cat_selector',mode:modes[i],value});
+  // A cat's name in the chosen language when that region's data has it, else in the SAVE's own data.
+  const catName=id=>{for(const data of [names&&names!==gd?names:null,gd]){if(!data)continue;try{const n=data.catNames(save.cc,id)?.find(Boolean);if(n)return n;}catch{}}return `#${id}`;};
+  // One condition (the engine's cat selector modes), as a set of cat ids.
+  async function catCondition(){
+    const modes=['all','unlocked','not_unlocked','obtainable','non_gacha','ids','name','rarity','gacha','game_version'];
+    const i=await choose(L('조건','Condition','条件','條件'),[L('전부','All','すべて','全部'),L('보유한 고양이','Owned','所持しているキャラ','已擁有的角色'),L('보유하지 않은 고양이','Not owned','所持していないキャラ','未擁有的角色'),L('획득 가능한 고양이','Obtainable','入手可能なキャラ','可取得的角色'),
+      L('가챠 이외 (스테이지·이벤트 보상 등)','Not from gacha (stage and event rewards...)','ガチャ以外 (ステージ・イベント報酬など)','非轉蛋（關卡、活動獎勵等）'),L('번호로 (예: 0-10, 25)','By id (e.g. 0-10, 25)','番号で (例: 0-10, 25)','依編號（例: 0-10, 25）'),L('이름으로 찾기','By name','名前で検索','依名稱搜尋'),
+      L('희귀도로 (여러 개 가능)','By rarity (several allowed)','レアリティで (複数可)','依稀有度（可多選）'),L('가챠 배너로','By gacha banner','ガチャのバナーで','依轉蛋橫幅'),L('추가된 게임 버전으로 (예: 15.7, 14.0-15.0)','By the game version that added them (e.g. 15.7, 14.0-15.0)','追加されたゲームバージョンで (例: 15.7, 14.0-15.0)','依加入的遊戲版本（例: 15.7, 14.0-15.0）')]);
+    const mode=modes[i];let value='';
+    if(mode==='ids')value=await ask(L('고양이 번호: ','Cat ids: ','キャラ番号: ','角色編號: '));
+    if(mode==='name')value=await ask(L('이름 (일부만 써도 됩니다): ','Name (part is fine): ','名前 (一部でもOK): ','名稱（輸入部分即可）: '));
+    if(mode==='rarity'){
+      const info=meta({action:'cat_selector',mode:'selector_info'});say('');info.rarities.forEach((r,k)=>say(`  ${k+1}) ${r}`));
+      for(;;){const n=parseNumbers(await ask(L('희귀도 번호 (예: 3 또는 3,4): ','Rarity numbers (e.g. 3 or 3,4): ','レアリティ番号 (例: 3 または 3,4): ','稀有度編號（例: 3 或 3,4）: ')));if(n&&n.every(x=>x>=1&&x<=info.rarities.length)){value=n.map(x=>x-1).join(' ');break;}}
+    }
+    if(mode==='gacha'){const info=meta({action:'cat_selector',mode:'selector_info'});value=(await pickEntries(L('가챠 배너','Gacha banners','ガチャのバナー','轉蛋橫幅'),info.banners.filter(b=>b.name!=='unknown_banner'),{max:200})).join(' ');}
+    if(mode==='game_version'){const info=meta({action:'cat_selector',mode:'selector_info'});if(info.gameVersions?.length)say(L(`  ${info.gameVersions[0]} ~ ${info.gameVersions.at(-1)}`,`  ${info.gameVersions[0]} to ${info.gameVersions.at(-1)}`,`  ${info.gameVersions[0]} ~ ${info.gameVersions.at(-1)}`,`  ${info.gameVersions[0]} ~ ${info.gameVersions.at(-1)}`));value=await ask(L('게임 버전: ','Game version: ','ゲームバージョン: ','遊戲版本: '));}
+    const r=meta({action:'cat_selector',mode,value});
+    let ids=r.catIds||[];
     // A name search also looks at the names in the chosen language (the same cat ids in that region's data).
-    if(modes[i]==='name'&&names&&names!==gd){try{const all=new Set(meta({action:'cat_selector',mode:'all'}).catIds),more=metadata.handle(save,names,{action:'cat_selector',mode:'name',value});
-      if(more?.success)r.catIds=[...new Set([...(r.catIds||[]),...more.catIds.filter(id=>all.has(id))])].sort((a,b)=>a-b);}catch{}}
-    if(!r.catIds?.length)throw new Error(L('해당하는 고양이가 없습니다.','No cats match.','該当するキャラがいません。','沒有符合的角色。'));
-    say(L(`고양이 ${r.catIds.length}마리 선택`,`${r.catIds.length} cats selected`,`キャラ${r.catIds.length}体を選択`,`已選擇 ${r.catIds.length} 隻角色`));
-    return r.catIds;
+    if(mode==='name'&&names&&names!==gd){try{const all=new Set(meta({action:'cat_selector',mode:'all'}).catIds),more=metadata.handle(save,names,{action:'cat_selector',mode:'name',value});
+      if(more?.success)ids=[...new Set([...ids,...more.catIds.filter(id=>all.has(id))])];}catch{}}
+    return new Set(ids);
+  }
+  // Conditions can be combined: start with one, then narrow (both), add (either) or drop ids, with a preview each time.
+  async function catTargets(){
+    let chosen=await catCondition();
+    for(;;){
+      const ids=[...chosen].sort((a,b)=>a-b);
+      say('');say(L(`선택: 고양이 ${ids.length}마리`,`Selected: ${ids.length} cats`,`選択中: キャラ${ids.length}体`,`已選擇: ${ids.length} 隻角色`));
+      if(ids.length)say('  '+ids.slice(0,8).map(id=>`${catName(id)} (${id})`).join(', ')+(ids.length>8?L(` 외 ${ids.length-8}마리`,` and ${ids.length-8} more`,` ほか${ids.length-8}体`,` 等另外 ${ids.length-8} 隻`):''));
+      const NEXT=['use','narrow','add','drop','list'];
+      const next=NEXT[await choose(L('이 선택으로 할까요?','Use this selection?','この選択でよいですか？','使用這個選擇嗎？'),[L('이대로 사용','Use it','このまま使う','直接使用'),L('조건 더해서 좁히기 (둘 다 맞는 고양이만)','Narrow with another condition (cats matching both)','条件を足して絞り込む (両方に合うキャラだけ)','再加條件縮小（只留兩者都符合的）'),
+        L('조건 더해서 늘리기 (어느 쪽이든)','Add another condition (cats matching either)','条件を足して広げる (どちらかに合うキャラ)','再加條件擴大（任一符合即可）'),L('번호로 빼기','Remove by id','番号で外す','依編號移除'),L('전체 목록 보기','Show the whole list','一覧をすべて表示','顯示完整列表')])];
+      if(next==='use'){if(!ids.length){say(L('해당하는 고양이가 없습니다.','No cats match.','該当するキャラがいません。','沒有符合的角色。'));continue;}return ids;}
+      if(next==='list'){ids.forEach(id=>say(`  ${id}) ${catName(id)}`));continue;}
+      if(next==='drop'){const n=parseNumbers(await ask(L('뺄 번호 (예: 3, 10-12): ','Ids to remove (e.g. 3, 10-12): ','外す番号 (例: 3, 10-12): ','要移除的編號（例: 3, 10-12）: ')));if(n)for(const id of n)chosen.delete(id);continue;}
+      const more=await catCondition();
+      chosen=next==='narrow'?new Set(ids.filter(id=>more.has(id))):new Set([...ids,...more]);
+    }
   }
   async function cats(){
     const ops=CAT_OPS.filter(op=>allowed({type:'cat',operation:op}));if(!ops.length)throw new Error(L('관리자가 고양이 편집을 꺼 두었습니다.','Cat edits are turned off.','キャラの編集は管理者により無効になっています。','角色編輯已被管理員關閉。'));
-    const op=ops[await choose(L('고양이 작업','Cat action','キャラの操作','角色操作'),ops.map(label))];
-    const catIds=await catTargets(),edit={type:'cat',operation:op,catIds};
-    if(op==='set_level'){const m=meta({action:'cat_level_metadata',catIds});const baseMax=ownerCap(m.baseMax,limits.catBase),plusMax=ownerCap(m.plusMax,limits.catPlus);
-      edit.base=await askNumber(L('기본 레벨','Base level','基本レベル','基本等級'),1,baseMax);edit.plus=plusMax>0?await askNumber(L('플러스 레벨','Plus level','プラスレベル','加值等級'),0,plusMax):0;}
-    if(op==='upgrade_by'||op==='storage_add')edit.amount=await askNumber(op==='upgrade_by'?L('올릴 레벨','Levels to add','上げるレベル','要提升的等級'):L('넣을 개수','Amount','数','數量'),1,Number(limits.catUpgradeAmount)||100000);
-    if(op==='remove'&&!(await yes(L(`고양이 ${catIds.length}마리를 삭제합니다. 계속할까요?`,`Remove ${catIds.length} cats?`,`キャラ${catIds.length}体を削除します。続けますか？`,`將刪除 ${catIds.length} 隻角色。要繼續嗎？`))))return null;
-    return edit;
+    // Several actions for the same cats in one go (e.g. 1,2,5 = unlock, true form, max level), applied in menu order.
+    say('');say(L('고양이 작업 (여러 개 가능, 예: 1,2,5)','Cat actions (several allowed, e.g. 1,2,5)','キャラの操作 (複数可、例: 1,2,5)','角色操作（可多選，例: 1,2,5）'));ops.forEach((op,k)=>say(`  ${k+1}) ${label(op)}`));say(`  0) ${L('← 돌아가기','← Back','← 戻る','← 返回')}`);
+    let picked;for(;;){const a=await ask('> ');if(a==='0')throw Object.assign(new Error('back'),{code:'BACK'});const n=parseNumbers(a);if(n&&n.length&&n.every(x=>x>=1&&x<=ops.length)){picked=[...new Set(n)].sort((x,y)=>x-y).map(x=>ops[x-1]);break;}say(L('목록에 있는 번호를 입력하세요.','Enter numbers from the list.','一覧にある番号を入力してください。','請輸入列表中的編號。'));}
+    const catIds=await catTargets(),out=[];
+    for(const op of picked){
+      const edit={type:'cat',operation:op,catIds};
+      if(op==='set_level'){const m=meta({action:'cat_level_metadata',catIds});const baseMax=ownerCap(m.baseMax,limits.catBase),plusMax=ownerCap(m.plusMax,limits.catPlus);
+        edit.base=await askNumber(L('기본 레벨','Base level','基本レベル','基本等級'),1,baseMax);edit.plus=plusMax>0?await askNumber(L('플러스 레벨','Plus level','プラスレベル','加值等級'),0,plusMax):0;}
+      if(op==='upgrade_by'||op==='storage_add')edit.amount=await askNumber(op==='upgrade_by'?L('올릴 레벨','Levels to add','上げるレベル','要提升的等級'):L('넣을 개수','Amount','数','數量'),1,Number(limits.catUpgradeAmount)||100000);
+      if(op==='remove'&&!(await yes(L(`고양이 ${catIds.length}마리를 삭제합니다. 계속할까요?`,`Remove ${catIds.length} cats?`,`キャラ${catIds.length}体を削除します。続けますか？`,`將刪除 ${catIds.length} 隻角色。要繼續嗎？`))))continue;
+      out.push(edit);
+    }
+    return out.length?out:null;
   }
+  // Items this SAVE has, with the current value and the highest value allowed now (game or extended limit, owner cap).
+  function itemRows(){
+    const values=items.itemValues(save);
+    return ITEMS.map(name=>{const game=maxed(()=>items.limit(save,name));return game==null||!(name in values)?null:{name,current:values[name],max:ownerCap(game,limits.items?.[name])};}).filter(Boolean);
+  }
+  // One item, several (1,3-5) or all; several take one value or max (each its own highest value). Returns edits.
   async function itemsMenu(){
-    const name=ITEMS[await choose(L('아이템','Item','アイテム','道具'),ITEMS.map(label))];
-    const game=maxed(()=>items.limit(save,name));if(game==null)throw new Error(L('이 SAVE에는 없는 항목입니다.','This SAVE does not have this item.','このセーブにはない項目です。','此存檔沒有這個項目。'));
-    return {type:'item',item:name,value:await askNumber(label(name),0,ownerCap(game,limits.items?.[name]))};
+    const rows=itemRows();if(!rows.length)throw new Error(L('이 SAVE에는 바꿀 아이템이 없습니다.','This SAVE has no items to change.','このセーブには変更できるアイテムがありません。','此存檔沒有可變更的道具。'));
+    say('');say(L('아이템  [현재 / 최대]','Items  [now / max]','アイテム  [現在 / 最大]','道具  [目前 / 最大]'));
+    rows.forEach((r,i)=>say(`  ${i+1}) ${label(r.name)}  [${fmt(r.current)} / ${fmt(r.max)}]`));
+    say(`  0) ${L('← 돌아가기','← Back','← 戻る','← 返回')}`);
+    say(L('  번호 하나, 여러 개 (예: 1,4-6) 또는 all','  One number, several (e.g. 1,4-6) or all','  番号ひとつ、複数 (例: 1,4-6) または all','  一個編號、多個（例: 1,4-6）或 all'));
+    let chosen;
+    for(;;){const a=(await ask('> ')).toLowerCase();if(a==='0')throw Object.assign(new Error('back'),{code:'BACK'});if(a==='all'){chosen=rows;break;}
+      const n=parseNumbers(a);if(n&&n.every(x=>x>=1&&x<=rows.length)){chosen=[...new Set(n)].map(x=>rows[x-1]);break;}say(L('목록에 있는 번호를 입력하세요.','Enter numbers from the list.','一覧にある番号を入力してください。','請輸入列表中的編號。'));}
+    if(chosen.length===1){const r=chosen[0];return [{type:'item',item:r.name,value:await askNumber(label(r.name),0,r.max,{current:r.current})}];}
+    say(L(`${chosen.length}개: ${chosen.map(r=>label(r.name)).join(', ')}`,`${chosen.length} items: ${chosen.map(r=>label(r.name)).join(', ')}`,`${chosen.length}件: ${chosen.map(r=>label(r.name)).join('、')}`,`${chosen.length} 項: ${chosen.map(r=>label(r.name)).join('、')}`));
+    for(;;){
+      const a=(await ask(L('값 (max = 각각 최대): ','Value (max = each to its highest): ','値 (max = それぞれ最大): ','數值（max = 各自最大）: '))).replace(/,/g,'').toLowerCase();
+      if(MAX_WORDS.has(a))return chosen.map(r=>({type:'item',item:r.name,value:r.max}));
+      const v=Number(a);if(!Number.isSafeInteger(v)||v<0){say(L('숫자 또는 max를 입력하세요.','Enter a number or max.','数字か max を入力してください。','請輸入數字或 max。'));continue;}
+      const over=chosen.filter(r=>v>r.max);if(over.length){say(L(`너무 큽니다: ${over.map(r=>`${label(r.name)} 최대 ${fmt(r.max)}`).join(', ')}`,`Too large: ${over.map(r=>`${label(r.name)} max ${fmt(r.max)}`).join(', ')}`,`大きすぎます: ${over.map(r=>`${label(r.name)} 最大 ${fmt(r.max)}`).join('、')}`,`太大: ${over.map(r=>`${label(r.name)} 最大 ${fmt(r.max)}`).join('、')}`));continue;}
+      return chosen.map(r=>({type:'item',item:r.name,value:v}));
+    }
   }
   async function inventory(){
     const name=INVENTORIES[await choose(L('보관함','Inventory','所持品','持有物品'),INVENTORIES.map(label))],m=meta({action:'inventory_metadata',inventory:name});
@@ -223,18 +278,17 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
   // Backing out inside a section (a BACK error from any prompt) returns to this list; backing out here goes further up.
   async function pick(){
     for(;;){
-      const list=sections();const i=await choose(L('무엇을 바꿀까요?','What to change?','何を変更しますか？','要變更什麼？'),[...list.map(s=>s[0]),L('← 돌아가기','← Back','← 戻る','← 返回')]);
-      if(i===list.length)return null;
+      const list=sections();const i=await choose(L('무엇을 바꿀까요?','What to change?','何を変更しますか？','要變更什麼？'),list.map(s=>s[0]));
       let edit;
       try{edit=await list[i][1]();}
       catch(err){if(err?.code!=='BACK')throw err;say(L('돌아갑니다. 아무것도 바꾸지 않았습니다.','Back. Nothing was changed.','戻ります。何も変更していません。','返回。沒有做任何變更。'));continue;}
-      if(edit&&!allowed(edit))throw new Error(L('관리자가 이 기능을 꺼 두었습니다.','This feature is turned off by an administrator.','この機能は管理者により無効になっています。','此功能已被管理員關閉。'));
+      if(edit&&[].concat(edit).some(e=>!allowed(e)))throw new Error(L('관리자가 이 기능을 꺼 두었습니다.','This feature is turned off by an administrator.','この機能は管理者により無効になっています。','此功能已被管理員關閉。'));
       return edit;
     }
   }
   function describe(e){
     const n=v=>typeof v==='number'?v.toLocaleString():String(v);
-    if(e.type==='item')return `${label(e.item)} = ${n(e.value)}`;
+    if(e.type==='item'){const before=items.itemValues(save)[e.item];return Number.isFinite(before)&&before!==e.value?`${label(e.item)} ${n(before)} → ${n(e.value)}`:`${label(e.item)} = ${n(e.value)}`;}
     if(e.type==='cat')return `${L('고양이','Cats','キャラ','角色')} ${e.catIds.length}${L('마리','','体','隻')} · ${label(e.operation)}${e.base!==undefined?` Lv${e.base}+${e.plus}`:''}${e.amount!==undefined?` ${n(e.amount)}`:''}`;
     if(e.type==='inventory')return `${label(e.inventory)} ${e.ids.length}${L('종','','種','種')} = ${n(e.value)}`;
     if(['story_clear','treasures','outbreaks','timed_scores'].includes(e.type))return `${label(e.type)} · ${e.chapters.length}${L('챕터',' chapters','章',' 章')} · ${e.mode==='whole'?L('전체 스테이지','all stages','全ステージ','全部關卡'):`${e.stages.length}${L('스테이지',' stages','ステージ',' 個關卡')}`} = ${n(e.value)}`;
@@ -247,6 +301,6 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
     if(e.type==='gacha_seed'||e.type==='score')return `${label(e.type)} ${e.seed||e.score} = ${n(e.value)}`;
     return label(e.type);
   }
-  return {pick,describe,allowed};
+  return {pick,describe,allowed,itemRows,label};
 }
-module.exports={createMenus,parseNumbers,EN};
+module.exports={createMenus,parseNumbers,EN,MAX_WORDS};

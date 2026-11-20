@@ -143,3 +143,12 @@ test('the early sign-in never changes the account; the full one happens at save 
   assert.equal(String(edited.data.inquiryCode),'mm11nn22oo33');assert.equal(String(edited.data.passwordRefreshToken),'refresh-2');
   assert.equal(String(base.data.inquiryCode),CODE,'the SAVE given at the start is not changed');
 });
+
+test('onStep reports each request for progress display and cannot break a request',async()=>{
+  const seen=[],p=fakePonos(),ponos=createPonos({fetch:p.fetch,now:()=>NOW,onStep:s=>{seen.push(s);throw new Error('display failed');}});
+  const r=await ponos.receive('abc123def','1234','kr',150700);
+  assert.equal(r.bytes.toString(),'SAVEBYTES','a failing callback does not change the result');
+  assert.equal(seen.length,1);assert.equal(seen[0].step,'RECEIVE');assert.ok(Number.isFinite(seen[0].ms)&&seen[0].ms>=0);assert.ok(seen[0].status>=200);
+  const down=[];await assert.rejects(createPonos({fetch:async()=>{throw new Error('offline');},onStep:s=>down.push(s)}).receive('abc123def','1234','kr',150700),err=>err.code==='NO_CONNECTION');
+  assert.deepEqual(down.map(s=>[s.step,s.status]),[['RECEIVE',0]]);
+});

@@ -42,11 +42,14 @@ function managedChanges(save){
 // The SAVE as it is uploaded: without editor bookkeeping entries.
 function withoutEditorEntries(save){const before=save.data.orderIds;save.data.orderIds=before.filter(entry=>!records.isRecord(entry));return ()=>{save.data.orderIds=before;};}
 
-function createPonos({fetch=globalThis.fetch,now=Date.now,randomHex=defaultHex,uuid=()=>crypto.randomUUID(),timeoutMs=60000}={}){
+// onStep({step, ms, status}): called after each PONOS request (status 0 = no answer), for progress display only.
+function createPonos({fetch=globalThis.fetch,now=Date.now,randomHex=defaultHex,uuid=()=>crypto.randomUUID(),timeoutMs=60000,onStep=null}={}){
+  const report=(step,started,status)=>{if(onStep)try{onStep({step,ms:Date.now()-started,status});}catch{}};
   async function http(step,method,url,headers,payload,{json=true}={}){
-    let res;
+    let res;const started=Date.now();
     try{res=await fetch(url,{method,headers,body:payload,signal:AbortSignal.timeout(timeoutMs)});}
-    catch{throw new PonosError('NO_CONNECTION',step);}
+    catch{report(step,started,0);throw new PonosError('NO_CONNECTION',step);}
+    report(step,started,res.status);
     const buf=Buffer.from(await res.arrayBuffer());
     if(!json)return {status:res.status,headers:res.headers,body:buf};
     let data;try{data=JSON.parse(buf.toString('utf8'));}catch{throw new PonosError('BAD_RESPONSE',step,{status:res.status});}
