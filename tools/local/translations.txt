@@ -1,0 +1,685 @@
+# Japanese and Traditional Chinese text for canbot.js. Each block: the English argument of an L(ko,en) call exactly as
+# it is written in tools/local/cli.js or menus.js, then the Japanese, then the Traditional Chinese (same quotes and the
+# same ${...} parts). tools/local/i18n.js adds them to the calls: node tools/local/i18n.js
+# Game terms follow common usage in each region's game; corrections from native players are welcome.
+# A call whose English text is empty ('') is keyed by its Korean text instead: ko:'마리'.
+
+'Enter a number.'
+'番号を入力してください。'
+'請輸入編號。'
+
+'Enter a number in range.'
+'範囲内の数字を入力してください。'
+'請輸入範圍內的數字。'
+
+'Cannot reach canbot.dev. Check your internet connection.'
+'canbot.devに接続できません。インターネット接続を確認してください。'
+'無法連線到 canbot.dev。請確認網路連線。'
+
+'\nA local editor token is needed. Sign in with Discord at canbot.dev/local to get one.'
+'\nローカルエディターのトークンが必要です。canbot.dev/local でDiscordにログインして取得してください。'
+'\n需要本機編輯器的權杖。請到 canbot.dev/local 以 Discord 登入取得。'
+
+'Paste token: '
+'トークンを貼り付け: '
+'貼上權杖: '
+
+'This token is not valid or was revoked.'
+'このトークンは無効か、取り消されています。'
+'此權杖無效或已被撤銷。'
+
+`There is no game data for ${cc.toUpperCase()} ${version} yet. It becomes available when CanBot adds the version.`
+`${cc.toUpperCase()} ${version} のゲームデータはまだありません。CanBotがこのバージョンに対応すると使えるようになります。`
+`${cc.toUpperCase()} ${version} 的遊戲資料尚未提供。CanBot 支援此版本後即可使用。`
+
+`Downloading game data (${cc.toUpperCase()} ${version})...`
+`ゲームデータをダウンロード中 (${cc.toUpperCase()} ${version})...`
+`正在下載遊戲資料 (${cc.toUpperCase()} ${version})...`
+
+'The game data download was damaged. Run again.'
+'ゲームデータが破損しています。もう一度実行してください。'
+'遊戲資料已損毀。請重新執行。'
+
+'\nThe transfer codes change only when you upload. If you leave before uploading, the same codes still work in the game.'
+'\n引き継ぎコードはアップロードしたときだけ新しくなります。アップロード前に終了すれば、同じコードをゲームでそのまま使えます。'
+'\n引繼碼只會在上傳時更換。在上傳前離開的話，同一組代碼仍可在遊戲中使用。'
+
+'Transfer code: '
+'引き継ぎコード: '
+'引繼碼: '
+
+'Confirmation code: '
+'認証番号: '
+'認證碼: '
+
+'The transfer code has 9 characters and the confirmation code 4 digits.'
+'引き継ぎコードは9文字、認証番号は4桁の数字です。'
+'引繼碼為 9 個字元，認證碼為 4 位數字。'
+
+'This region is not supported yet.'
+'この地域にはまだ対応していません。'
+'尚未支援此地區。'
+
+'Downloading the SAVE from PONOS...'
+'PONOSサーバーからセーブを取得中...'
+'正在從 PONOS 伺服器取得存檔...'
+
+'Cannot reach the PONOS server.'
+'PONOSサーバーに接続できません。'
+'無法連線到 PONOS 伺服器。'
+
+'The codes are wrong or already used. Issue new codes in the game.'
+'コードが違うか、すでに使われています。ゲームで新しいコードを発行してください。'
+'代碼錯誤或已被使用。請在遊戲中重新發行代碼。'
+
+`Received SAVE backed up to: ${file}`
+`受け取ったセーブのバックアップ: ${file}`
+`已備份收到的存檔: ${file}`
+
+`\nSAVE file path (Enter = ${guess})`
+`\nセーブファイルのパス (Enter = ${guess})`
+`\n存檔檔案路徑 (Enter = ${guess})`
+
+'Close the game completely before continuing.'
+'ゲームを完全に終了してから続けてください。'
+'請先完全關閉遊戲再繼續。'
+
+'Cannot read the file. Check the path and root (su) access.'
+'ファイルを読めません。パスとroot(su)権限を確認してください。'
+'無法讀取檔案。請確認路徑與 root (su) 權限。'
+
+`Original backed up to: ${saved}`
+`元のセーブのバックアップ: ${saved}`
+`已備份原始存檔: ${saved}`
+
+'adb was not found. Install Android platform-tools and add it to PATH.'
+'adbが見つかりません。Android platform-toolsをインストールしてPATHに追加してください。'
+'找不到 adb。請安裝 Android platform-tools 並加入 PATH。'
+
+'No device is connected. Turn on USB debugging (ADB on emulators).'
+'接続された端末がありません。USBデバッグ(エミュレーターはADB接続)を有効にしてください。'
+'沒有連接的裝置。請開啟 USB 偵錯（模擬器請開啟 ADB 連線）。'
+
+'Choose a device'
+'端末を選択'
+'選擇裝置'
+
+'Close the game now? (recommended)'
+'ゲームを終了しますか？(推奨)'
+'要關閉遊戲嗎？（建議）'
+
+'Cannot read the SAVE. Check root (su) on the device and that the game is installed.'
+'セーブを読めません。端末のroot(su)権限とゲームのインストールを確認してください。'
+'無法讀取存檔。請確認裝置的 root (su) 權限與遊戲是否已安裝。'
+
+'There are no backups for this region.'
+'この地域のバックアップはありません。'
+'此地區沒有備份。'
+
+'Backup to restore (newest 20)'
+'復元するバックアップ (新しい順20件)'
+'要還原的備份（最新 20 個）'
+
+'Restore to?'
+'どこに復元しますか？'
+'要還原到哪裡？'
+
+'Upload to PONOS for new transfer codes'
+'PONOSにアップロードして新しい引き継ぎコードを受け取る'
+'上傳到 PONOS 並取得新的引繼碼'
+
+'SAVE file (rooted device)'
+'セーブファイル (root端末)'
+'存檔檔案（已 root 的裝置）'
+
+'Device over adb'
+'adbで接続した端末'
+'透過 adb 連接的裝置'
+
+`${name} can be set up to ${max.toLocaleString()}.`
+`${name}は最大${max.toLocaleString()}まで設定できます。`
+`${name}最多可設定為 ${max.toLocaleString()}。`
+
+'Base level'
+'基本レベル'
+'基本等級'
+
+'Plus level'
+'プラスレベル'
+'加值等級'
+
+'Amount'
+'数'
+'數量'
+
+'— Pending edits —'
+'— 保留中の編集 —'
+'— 待處理的編輯 —'
+
+'  (none)'
+'  (なし)'
+'  （無）'
+
+'What next?'
+'次はどうしますか？'
+'接下來要做什麼？'
+
+'Add an edit'
+'編集を追加'
+'新增編輯'
+
+'Remove one edit'
+'編集をひとつ削除'
+'刪除一項編輯'
+
+'Clear all edits'
+'編集をすべて削除'
+'清除所有編輯'
+
+'Save'
+'保存'
+'儲存'
+
+'Quit without saving'
+'保存せずに終了'
+'不儲存並離開'
+
+`Up to ${PENDING_MAX} edits at a time.`
+`編集は一度に${PENDING_MAX}件までです。`
+`一次最多 ${PENDING_MAX} 項編輯。`
+
+`Added: ${menus.describe(edit)}`
+`追加: ${menus.describe(edit)}`
+`已新增: ${menus.describe(edit)}`
+
+'Edit number to remove'
+'削除する編集の番号'
+'要刪除的編輯編號'
+
+`Removed: ${menus.describe(gone)}`
+`削除: ${menus.describe(gone)}`
+`已刪除: ${menus.describe(gone)}`
+
+'There are no edits.'
+'編集がありません。'
+'沒有編輯。'
+
+`Not added: ${err.message}`
+`追加できませんでした: ${err.message}`
+`未新增: ${err.message}`
+
+'You have no SAVEs left.'
+'保存できる回数が残っていません。'
+'已沒有剩餘的儲存次數。'
+
+'(Could not report the result to canbot.dev. The SAVE itself is not affected.)'
+'(canbot.devに結果を送れませんでした。セーブ自体には影響ありません。)'
+'（無法將結果回報給 canbot.dev。存檔本身不受影響。）'
+
+'The edited SAVE did not verify. Nothing was saved.'
+'編集したセーブの確認に失敗しました。何も保存していません。'
+'編輯後的存檔驗證失敗。未儲存任何內容。'
+
+'Could not write the SAVE. You can restore it from the backup.'
+'セーブを書き込めませんでした。バックアップから復元できます。'
+'無法寫入存檔。可以從備份還原。'
+
+'\nSaved. Start the game to check.'
+'\n保存しました。ゲームを起動して確認してください。'
+'\n已儲存。請啟動遊戲確認。'
+
+'\nThe SAVE was written but could not be read back. Check in the game.'
+'\nセーブを書き込みましたが、読み直して確認できませんでした。ゲームで確認してください。'
+'\n已寫入存檔，但無法重新讀取確認。請在遊戲中確認。'
+
+'Uploading to PONOS...'
+'PONOSにアップロード中...'
+'正在上傳到 PONOS...'
+
+`PONOS sign-in failed (${err.code||'?'}). Nothing was uploaded.`
+`PONOSの認証に失敗しました (${err.code||'?'})。何もアップロードしていません。`
+`PONOS 驗證失敗 (${err.code||'?'})。未上傳任何內容。`
+
+`Upload failed (${err.step}: ${err.code}). Nothing changed at PONOS.`
+`アップロードできませんでした (${err.step}: ${err.code})。PONOS側は何も変わっていません。`
+`上傳失敗 (${err.step}: ${err.code})。PONOS 端沒有任何變更。`
+
+'\nThe upload result is unknown. It is not retried automatically.\nThe edited SAVE is in ~/.canbot/backups. Ask in the CanBot Discord.'
+'\nアップロードの結果を確認できません。自動で再試行はしません。\n編集したセーブは ~/.canbot/backups にあります。CanBotのDiscordでお問い合わせください。'
+'\n無法確認上傳結果。不會自動重試。\n編輯後的存檔在 ~/.canbot/backups。請到 CanBot 的 Discord 詢問。'
+
+`  Transfer code: ${codes.transferCode}`
+`  引き継ぎコード: ${codes.transferCode}`
+`  引繼碼: ${codes.transferCode}`
+
+`  Confirmation code: ${codes.confirmationCode}`
+`  認証番号: ${codes.confirmationCode}`
+`  認證碼: ${codes.confirmationCode}`
+
+`Enter these codes in the game's data transfer screen. (upload ${((Date.now()-started)/1000).toFixed(1)}s)`
+`ゲームの「機種変更」画面で上のコードを入力してください。(アップロード ${((Date.now()-started)/1000).toFixed(1)}秒)`
+`請在遊戲的「引繼資料」畫面輸入上方代碼。（上傳 ${((Date.now()-started)/1000).toFixed(1)} 秒）`
+
+'Nothing was uploaded, so the transfer codes you entered still work in the game.'
+'アップロードしていないので、入力した引き継ぎコードはゲームでそのまま使えます。'
+'由於沒有上傳，輸入的引繼碼仍可在遊戲中使用。'
+
+'\nCanBot local editor'
+'\nCanBot ローカルエディター'
+'\nCanBot 本機編輯器'
+
+'unlimited'
+'無制限'
+'無限制'
+
+`Hello ${hello.user?.name||''}. SAVEs left: ${left}`
+`${hello.user?.name||''}さん、こんにちは。残りの保存回数: ${left}`
+`${hello.user?.name||''} 你好。剩餘儲存次數: ${left}`
+
+'Where is the SAVE?'
+'セーブをどこから読み込みますか？'
+'要從哪裡讀取存檔？'
+
+'Transfer codes (no root needed)'
+'引き継ぎコード (root不要)'
+'引繼碼（不需要 root）'
+
+'SAVE file (rooted phone or emulator)'
+'セーブファイル (root端末・エミュレーター)'
+'存檔檔案（已 root 的手機或模擬器）'
+
+'Device connected to this PC with adb'
+'このPCにadbで接続した端末'
+'以 adb 連接到這台電腦的裝置'
+
+'Restore a backup'
+'バックアップから復元'
+'從備份還原'
+
+'Forget token'
+'トークンを削除'
+'刪除權杖'
+
+'Quit'
+'終了'
+'離開'
+
+'Token removed.'
+'トークンを削除しました。'
+'已刪除權杖。'
+
+'Game region'
+'ゲームの地域'
+'遊戲地區'
+
+'Korean'
+'韓国版'
+'韓國版'
+
+'Global (English)'
+'グローバル(英語)版'
+'國際（英文）版'
+
+'Japanese'
+'日本版'
+'日本版'
+
+'Taiwanese'
+'台湾版'
+'台灣版'
+
+`SAVE version ${version} (${save.cc.toUpperCase()})`
+`セーブのバージョン ${version} (${save.cc.toUpperCase()})`
+`存檔版本 ${version} (${save.cc.toUpperCase()})`
+
+'The SAVE is from another region.'
+'選んだ地域とセーブの地域が違います。'
+'所選地區與存檔地區不同。'
+
+'Restore this backup? (uses one SAVE)'
+'このバックアップを復元しますか？(保存1回分を使います)'
+'要還原此備份嗎？（會使用一次儲存次數）'
+
+'Save these changes?'
+'この内容で保存しますか？'
+'要儲存這些變更嗎？'
+
+`\nError: ${err.message}`
+`\nエラー: ${err.message}`
+`\n錯誤: ${err.message}`
+
+`Error: ${err.message}`
+`エラー: ${err.message}`
+`錯誤: ${err.message}`
+
+'This feature is not available for this SAVE.'
+'このセーブでは使えない機能です。'
+'此存檔無法使用這個功能。'
+
+'  all = everything · ids like 0-5, 8 · /word to search · l = list'
+'  all = すべて · 番号 例: 0-5, 8 · /単語 で検索 · l = 一覧'
+'  all = 全部 · 編號 例: 0-5, 8 · /關鍵字 搜尋 · l = 列表'
+
+`  ...${entries.length-500} more (search with /word)`
+`  ...ほか${entries.length-500}件 (/単語 で検索してください)`
+`  ...還有 ${entries.length-500} 項（請用 /關鍵字 搜尋）`
+
+`  ${hits.length} found`
+`  ${hits.length}件見つかりました`
+`  找到 ${hits.length} 項`
+
+`Up to ${max} at a time.`
+`一度に${max}件まで選べます。`
+`一次最多可選 ${max} 項。`
+
+'Enter ids from the list.'
+'一覧にある番号を入力してください。'
+'請輸入列表中的編號。'
+
+`Stages: Enter = all, or numbers (1-${count}, e.g. 1-10, 15)`
+`ステージ: Enter = すべて、または番号 (1~${count}、例: 1-10, 15)`
+`關卡: Enter = 全部，或輸入編號 (1~${count}，例: 1-10, 15)`
+
+'Enter numbers in range.'
+'範囲内の番号を入力してください。'
+'請輸入範圍內的編號。'
+
+'Which cats?'
+'どのキャラ？'
+'哪些角色？'
+
+'All'
+'すべて'
+'全部'
+
+'Owned'
+'所持しているキャラ'
+'已擁有的角色'
+
+'Not owned'
+'所持していないキャラ'
+'未擁有的角色'
+
+'Obtainable'
+'入手可能なキャラ'
+'可取得的角色'
+
+'By id (e.g. 0-10, 25)'
+'番号で (例: 0-10, 25)'
+'依編號（例: 0-10, 25）'
+
+'By name'
+'名前で検索'
+'依名稱搜尋'
+
+'By rarity'
+'レアリティで'
+'依稀有度'
+
+'Cat ids: '
+'キャラ番号: '
+'角色編號: '
+
+'Name (part is fine): '
+'名前 (一部でもOK): '
+'名稱（輸入部分即可）: '
+
+'Rarity'
+'レアリティ'
+'稀有度'
+
+'No cats match.'
+'該当するキャラがいません。'
+'沒有符合的角色。'
+
+`${r.catIds.length} cats selected`
+`キャラ${r.catIds.length}体を選択`
+`已選擇 ${r.catIds.length} 隻角色`
+
+'Cat edits are turned off.'
+'キャラの編集は管理者により無効になっています。'
+'角色編輯已被管理員關閉。'
+
+'Cat action'
+'キャラの操作'
+'角色操作'
+
+'Levels to add'
+'上げるレベル'
+'要提升的等級'
+
+`Remove ${catIds.length} cats?`
+`キャラ${catIds.length}体を削除します。続けますか？`
+`將刪除 ${catIds.length} 隻角色。要繼續嗎？`
+
+'Item'
+'アイテム'
+'道具'
+
+'This SAVE does not have this item.'
+'このセーブにはない項目です。'
+'此存檔沒有這個項目。'
+
+'Inventory'
+'所持品'
+'持有物品'
+
+'Story edits are turned off.'
+'ストーリーの編集は管理者により無効になっています。'
+'故事編輯已被管理員關閉。'
+
+'Story'
+'ストーリー'
+'故事'
+
+'Chapters'
+'章'
+'章節'
+
+'Mark as cleared? (n = not cleared)'
+'クリア済みにしますか？(n = 未クリアに)'
+'要設為已通關嗎？（n = 設為未通關）'
+
+'Treasure grade (0 none, 1 bronze, 2 silver, 3 gold)'
+'お宝のランク (0 なし、1 銅、2 銀、3 金)'
+'寶物等級（0 無、1 銅、2 銀、3 金）'
+
+'Score'
+'スコア'
+'分數'
+
+'Clear count'
+'クリア回数'
+'通關次數'
+
+'Stage group'
+'ステージの種類'
+'關卡類型'
+
+'This SAVE has no maps of this kind.'
+'このセーブにはこの種類のマップがありません。'
+'此存檔沒有這類地圖。'
+
+'Crown'
+'王冠'
+'王冠'
+
+'Collection'
+'収集項目'
+'收集項目'
+
+'Nothing to change here.'
+'変更できる項目がありません。'
+'沒有可變更的項目。'
+
+'Action'
+'操作'
+'操作'
+
+'Enter seconds left, or infinity'
+'残り秒数を入力してください。無制限は infinity'
+'請輸入剩餘秒數。無限制請輸入 infinity'
+
+'Value'
+'値'
+'數值'
+
+'Gamatoto, Ototo and Cat Shrine'
+'ガマトト・オトート・ネコ神社'
+'喵喵探險隊・弟弟・貓咪神社'
+
+'Cannon'
+'キャノン'
+'大砲'
+
+`Level ${i+1}`
+`レベル ${i+1}`
+`等級 ${i+1}`
+
+'Development stage'
+'開発段階'
+'開發階段'
+
+'Other'
+'その他'
+'其他'
+
+'Account and fixes'
+'アカウント・修復'
+'帳號・修復'
+
+'Hours'
+'時間'
+'小時'
+
+'Minutes'
+'分'
+'分'
+
+'Seconds'
+'秒'
+'秒'
+
+'Gacha seed'
+'ガチャシード'
+'轉蛋種子'
+
+'Rare'
+'レアガチャ'
+'稀有轉蛋'
+
+'Normal'
+'ノーマルガチャ'
+'普通轉蛋'
+
+'Event'
+'イベントガチャ'
+'活動轉蛋'
+
+'Seed'
+'シード値'
+'種子值'
+
+'Dojo'
+'道場スコア'
+'道場分數'
+
+'Challenge battle'
+'チャレンジバトルスコア'
+'挑戰戰分數'
+
+'Items (Cat Food, XP, tickets...)'
+'アイテム (ネコカン、XP、チケット...)'
+'道具（貓罐頭、XP、轉蛋券...）'
+
+'Inventory (Catseyes, Catamins, Catfruit...)'
+'所持品 (ネコの目、ネコビタン、マタタビ...)'
+'持有物品（貓眼石、貓薄荷飲料、木天蓼...）'
+
+'Cats (pick cats: unlock, forms, levels, talents...)'
+'キャラ (選んで: 入手・進化・レベル・本能...)'
+'角色（選擇後: 取得、進化、等級、本能...）'
+
+'Story (clears, treasures, outbreaks, scores)'
+'ストーリー (クリア・お宝・ゾンビ・スコア)'
+'故事（通關、寶物、殭屍、分數）'
+
+'Stage maps (Legend, event, collab...)'
+'ステージマップ (レジェンド・イベント・コラボ...)'
+'關卡地圖（傳說、活動、合作...）'
+
+'Collections (skills, medals, talent orbs...)'
+'収集 (特殊能力・メダル・本能玉...)'
+'收集（特殊能力、勳章、本能玉...）'
+
+'Gamatoto, Ototo, Cat Shrine'
+'ガマトト・オトート・ネコ神社'
+'喵喵探險隊・弟弟・貓咪神社'
+
+'Other (lineup slots, 100M tickets...)'
+'その他 (編成スロット・1億チケット...)'
+'其他（編成欄位、1 億轉蛋券...）'
+
+'Account and fixes (play time, seed, repairs...)'
+'アカウント・修復 (プレイ時間・シード・不具合修復...)'
+'帳號・修復（遊玩時間、種子、錯誤修復...）'
+
+'Max All'
+'すべて最大 (Max All)'
+'全部最大 (Max All)'
+
+'Max Account'
+'アカウント最大 (Max Account)'
+'帳號最大 (Max Account)'
+
+'What to change?'
+'何を変更しますか？'
+'要變更什麼？'
+
+'← Back'
+'← 戻る'
+'← 返回'
+
+'This feature is turned off by an administrator.'
+'この機能は管理者により無効になっています。'
+'此功能已被管理員關閉。'
+
+'Cats'
+'キャラ'
+'角色'
+
+ko:'마리'
+'体'
+'隻'
+
+ko:'종'
+'種'
+'種'
+
+ko:'개'
+'個'
+'個'
+
+' chapters'
+'章'
+' 章'
+
+'all stages'
+'全ステージ'
+'全部關卡'
+
+' stages'
+'ステージ'
+' 個關卡'
+
+' maps'
+'マップ'
+' 張地圖'
+
+'clear'
+'クリア'
+'通關'
+
+'not cleared'
+'未クリア'
+'未通關'

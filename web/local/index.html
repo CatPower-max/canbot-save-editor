@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later  Copyright (C) 2026 CanBot -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>깡통봇 로컬 에디터</title>
+<meta name="description" content="CanBot local editor: edit Battle Cats SAVEs on Termux or a PC with your own token.">
+<link rel="canonical" href="https://canbot.dev/local">
+<link rel="stylesheet" href="/local/local.css">
+</head>
+<body>
+<main>
+  <h1>깡통봇 로컬 에디터 <span class="en">CanBot local editor</span></h1>
+  <p>Termux(안드로이드)나 PC에서 직접 실행하는 깡통봇 에디터입니다. 인계 코드로 불러오거나, 루팅된 기기·에뮬레이터의 SAVE 파일을 바로 고칠 수 있습니다. 저장 횟수와 편집 한도는 디스코드·웹과 똑같이 적용됩니다.</p>
+  <p class="en">Run CanBot's editor on Termux (Android) or a PC. Load with transfer codes, or edit the SAVE file of a rooted phone or emulator. SAVE allowance and edit limits are the same as on Discord and the website.</p>
+
+  <section id="account" class="card">
+    <h2>1. 토큰 <span class="en">Token</span></h2>
+    <div id="signed-out" hidden>
+      <p>디스코드로 로그인하면 토큰을 받을 수 있습니다. 깡통봇 서버의 인증된 멤버만 받을 수 있습니다.</p>
+      <a class="btn" href="/auth/discord?next=local">디스코드로 로그인 / Sign in with Discord</a>
+    </div>
+    <div id="signed-in" hidden>
+      <p id="status"></p>
+      <div class="row"><button id="issue" class="btn" type="button">새 토큰 받기 / New token</button><button id="revoke" class="btn ghost" type="button">토큰 회수 / Revoke</button></div>
+      <div id="token-box" hidden>
+        <p><b>이 토큰은 지금 한 번만 보입니다. 다른 사람에게 보여 주지 마세요.</b> <span class="en">Shown only once. Keep it private.</span></p>
+        <code id="token"></code>
+        <button id="copy" class="btn ghost" type="button">복사 / Copy</button>
+      </div>
+    </div>
+    <p id="error" class="error" hidden></p>
+  </section>
+
+  <section class="card">
+    <h2>2. 설치 <span class="en">Install</span></h2>
+    <p><b>Termux</b> (안드로이드, F-Droid에서 설치) · Linux · macOS — 한 줄 설치 후 <code>canbot</code> 만 입력하면 됩니다.</p>
+    <pre>pkg install nodejs
+curl -fsSL https://canbot.dev/local/install.sh | sh
+canbot</pre>
+    <p class="en">One-line install, then just run <code>canbot</code>. It refreshes itself from canbot.dev (at most every 6 hours).</p>
+    <p><b>Windows</b> (Node.js 18 이상): <a href="/local/canbot.js" download>canbot.js 내려받기</a> 후 <code>node canbot.js</code></p>
+    <p>처음 실행할 때 위 토큰을 붙여 넣습니다. 토큰과 백업은 <code>~/.canbot</code> 폴더에 저장됩니다.</p>
+  </section>
+
+  <section class="card">
+    <h2>3. 알아 둘 것 <span class="en">Good to know</span></h2>
+    <ul>
+      <li>인계 코드는 업로드할 때만 새 코드로 바뀝니다. 업로드하기 전에 나가면 같은 코드를 게임에서 그대로 쓸 수 있습니다.</li>
+      <li>업로드 결과를 확인할 수 없으면 자동으로 다시 시도하지 않습니다. 편집한 SAVE는 백업 폴더에 남습니다.</li>
+      <li>SAVE 파일 모드는 루트 권한(su)이 필요하고, 고치기 전에 원본을 백업합니다. 게임을 완전히 종료한 뒤 사용하세요.</li>
+      <li>SAVE, 인계 코드, 편집 내용은 canbot.dev로 보내지 않습니다. 서버는 토큰 확인, 게임 데이터, 저장 횟수만 다룹니다.</li>
+    </ul>
+  </section>
+</main>
+<script src="/local/local.js"></script>
+</body>
+</html>

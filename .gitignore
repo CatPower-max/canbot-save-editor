@@ -1,0 +1,6 @@
+node_modules/
+tools/local/.maps/
+*.log
+*.tmp
+.DS_Store
+.canbot/
