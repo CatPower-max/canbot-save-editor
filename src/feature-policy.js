@@ -19,7 +19,7 @@ const CATEGORY_KEYS=Object.freeze({
   other:['featureOtherEnabled'],editor:['featureEditorConfigEnabled'],presets:['featurePresetsEnabled'],save_management:[],
 });
 const SECTION_KEYS=Object.freeze({items:'featureItemsEnabled',cats:'featureCatsEnabled',levels:'featureStoryEnabled',expedition:'featureGamatotoEnabled',gacha:'featureGachaEnabled',fixes:'featureFixesEnabled',account:'featureAccountEnabled',other:'featureOtherEnabled',playtime:'accountPlaytimeEnabled',config:'featureEditorConfigEnabled',presets:'featurePresetsEnabled'});
-const CAT_ACTION_KEYS=Object.freeze({unlock:'catUnlockEnabled',remove:'catRemoveEnabled',set_level:'catLevelsEnabled',max_upgrade:'catLevelsEnabled',max_base_plus:'catLevelsEnabled',upgrade_by:'catLevelsEnabled',true_form:'catFormsEnabled',fourth_form:'catFormsEnabled',remove_true_form:'catFormsEnabled',remove_fourth_form:'catFormsEnabled',max_talents:'catTalentsEnabled',remove_talents:'catTalentsEnabled'});
+const CAT_ACTION_KEYS=Object.freeze({unlock:'catUnlockEnabled',remove:'catRemoveEnabled',set_level:'catLevelsEnabled',max_upgrade:'catLevelsEnabled',max_base_plus:'catLevelsEnabled',upgrade_by:'catLevelsEnabled',true_form:'catFormsEnabled',fourth_form:'catFormsEnabled',force_true_form:'catFormsEnabled',force_fourth_form:'catFormsEnabled',remove_true_form:'catFormsEnabled',remove_fourth_form:'catFormsEnabled',max_talents:'catTalentsEnabled',remove_talents:'catTalentsEnabled'});
 
 const enabled=(config,key)=>config?.[key]!==false;
 function categoryEnabled(config,category){const keys=CATEGORY_KEYS[category];return Array.isArray(keys)&&(!keys.length||keys.some(key=>enabled(config,key)));}

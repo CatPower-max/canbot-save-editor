@@ -267,14 +267,19 @@ function explain(err){
     CAT_FORM_UNSUPPORTED:L('그 형태가 없는 고양이가 있습니다.','Some cats do not have that form.','その形態がないキャラがいます。','有角色沒有該型態。'),
     ACCOUNT_REGION_MISMATCH:L('SAVE 지역이 맞지 않습니다.','The SAVE is from another region.','セーブの地域が合いません。','存檔地區不符。'),
   };
+  if(/^CAT_TALENT_/.test(code)||/^CAT_TALENT_/.test(String(err?.message||'')))return L('본능이 없거나 이 게임 버전에서 본능을 바꿀 수 없는 고양이가 있습니다.','Some cats have no talents, or their talents cannot be changed in this game version.','本能がない、またはこのゲームバージョンでは本能を変更できないキャラがいます。','有角色沒有本能，或在此遊戲版本中無法變更本能。');
   if(known[code])return known[code];
   if(/^STORY_/.test(code))return L('이 SAVE의 스토리 구조에서는 쓸 수 없습니다.','This does not fit the story data of this SAVE.','このセーブのストーリーデータでは使えません。','此存檔的故事資料無法使用。');
-  return err?.message||String(err);
+  // A bare engine code: say that this SAVE cannot take the edit, with the code for support.
+  const raw=String(err?.message||err||'');
+  if(/^[A-Z][A-Z0-9_]{2,63}$/.test(raw))return L(`이 SAVE에서는 할 수 없는 편집입니다 (${raw}).`,`This SAVE cannot take this edit (${raw}).`,`このセーブではできない編集です (${raw})。`,`此存檔無法進行這項編輯 (${raw})。`);
+  return raw;
 }
 const HELP_KO=[
   '명령',
   '  Enter          편집 추가 (메뉴에서 고르기, 다 고르면 0)',
   '  통조림 45000    바로 입력. 여러 개도 됨: 레어 299 플티 max',
+  '  /본능          기능 찾기 (어느 언어로 써도 됨. / 없이 써도 찾아봄)',
   '  maxall         전부 최대',
   '  s              저장하기',
   '  p / p+         프리셋 불러오기 / 지금 편집을 프리셋으로 저장',
@@ -286,6 +291,7 @@ const HELP_EN=[
   'Commands',
   '  Enter            add an edit (pick from the menus; 0 when done)',
   '  catfood 45000    type it directly; several work too: rare 299 platinum max',
+  '  /talent          find a feature (any language; works without / too)',
   '  maxall           Max All',
   '  s                save',
   '  p / p+           load a preset / save these edits as a preset',
@@ -297,6 +303,7 @@ const HELP_JA=[
   'コマンド',
   '  Enter            編集を追加 (メニューから選ぶ。終わったら 0)',
   '  ネコカン 45000    直接入力。複数も可: レア 299 プラチナ max',
+  '  /本能            機能を探す (どの言語でも可。/ なしでも検索します)',
   '  maxall           すべて最大',
   '  s                保存',
   '  p / p+           プリセットを読み込む / この編集をプリセットとして保存',
@@ -308,6 +315,7 @@ const HELP_ZH=[
   '指令',
   '  Enter            新增編輯（從選單選擇，完成後輸入 0）',
   '  貓罐頭 45000      直接輸入。也可以一次多個: 稀有券 299 白金券 max',
+  '  /本能            搜尋功能（任何語言皆可，不加 / 也會搜尋）',
   '  maxall           全部最大',
   '  s                儲存',
   '  p / p+           載入預設 / 將目前的編輯存為預設',
@@ -337,7 +345,7 @@ async function editMenu(source,save,gd,hello,names=null,kept=[],config=prefs){
     if(edits.length)say(edits.map((e,i)=>`  ${i+1}. ${menus.describe(e)}`).join('\n'));
     if(extended)say(L('  [확장 한도 켜짐]','  [extended limits on]','  [拡張上限オン]','  [擴充上限已開啟]'));
     if(first){help();first=false;}
-    else say(L('Enter 편집 추가 · s 저장 · ? 도움말 · 0 나가기 · 바로 입력: 통조림 45000','Enter add · s save · ? help · 0 quit · or type: catfood 45000','Enter 追加 · s 保存 · ? ヘルプ · 0 終了 · 直接入力: ネコカン 45000','Enter 新增 · s 儲存 · ? 說明 · 0 離開 · 直接輸入: 貓罐頭 45000'));
+    else say(L('Enter 편집 추가 · s 저장 · ? 도움말 · 0 나가기 · 통조림 45000 · /기능 찾기','Enter add · s save · ? help · 0 quit · catfood 45000 · /find a feature','Enter 追加 · s 保存 · ? ヘルプ · 0 終了 · ネコカン 45000 · /機能を探す','Enter 新增 · s 儲存 · ? 說明 · 0 離開 · 貓罐頭 45000 · /搜尋功能'));
     let a;try{a=await ask('> ');}catch(err){if(isBack(err)){backed();return null;}throw err;}
     const cmd=a.toLowerCase();
     try{
@@ -376,10 +384,15 @@ async function editMenu(source,save,gd,hello,names=null,kept=[],config=prefs){
       }
       else if(cmd==='c'){if(edits.length&&await yes(L(`편집 ${edits.length}개를 모두 지울까요?`,`Clear all ${edits.length} edits?`,`${edits.length}件の編集をすべて削除しますか？`,`要清除全部 ${edits.length} 項編輯嗎？`)))edits.length=0;}
       else{
-        const direct=parseDirect(a,menus.itemRows(),menus.label);
-        if(!direct)say(L('알 수 없는 명령입니다. ? 를 입력하면 도움말이 나옵니다.','Unknown command. Type ? for help.','不明なコマンドです。? でヘルプを表示します。','未知的指令。輸入 ? 查看說明。'));
-        else if(direct.error)say(direct.error);
-        else tryAdd(direct.edits);
+        // "/word" searches the features; other text is an item typed directly, else also a feature search.
+        const direct=a.startsWith('/')?null:parseDirect(a,menus.itemRows(),menus.label);
+        if(direct?.error)say(direct.error);
+        else if(direct)tryAdd(direct.edits);
+        else{
+          const found=await menus.find(a.startsWith('/')?a.slice(1):a);
+          if(found.none)say(L('그런 기능이나 명령이 없습니다. ? 를 입력하면 도움말이 나옵니다.','No such feature or command. Type ? for help.','そのような機能やコマンドはありません。? でヘルプを表示します。','沒有這個功能或指令。輸入 ? 查看說明。'));
+          else if(found.edit)tryAdd(found.edit);
+        }
       }
     }catch(err){if(isBack(err)){backed();continue;}notAdded(err);}
   }

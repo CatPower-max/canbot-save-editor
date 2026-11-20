@@ -4,7 +4,7 @@
 // Korean names of editor features for the admin AI log ("AI가 이해한 것"): the actual feature each proposed or applied
 // edit uses, instead of internal names such as "edit" or "cat:unlock". Same wording as the web editor.
 const ITEMS={catfood:'통조림',xp:'XP',normal_tickets:'냥코 티켓',rare_tickets:'레어 티켓',platinum_tickets:'플래티넘 티켓',legend_tickets:'레전드 티켓',platinum_shards:'플래티넘 조각',np:'NP',leadership:'리더십'};
-const CAT={unlock:'획득',remove:'삭제',set_level:'레벨 설정',max_upgrade:'최대 강화',max_base_plus:'기본+플러스 최대',upgrade_by:'레벨 올리기',true_form:'3형태',fourth_form:'4형태',remove_true_form:'3형태 해제',remove_fourth_form:'4형태 해제',max_talents:'본능 최대',remove_talents:'본능 제거',cat_guide:'도감 등록',remove_cat_guide:'도감 제거',storage_add:'저장고 추가'};
+const CAT={unlock:'획득',remove:'삭제',set_level:'레벨 설정',max_upgrade:'최대 강화',max_base_plus:'기본+플러스 최대',upgrade_by:'레벨 올리기',true_form:'3형태',fourth_form:'4형태',force_true_form:'3형태 (강제)',force_fourth_form:'4형태 (강제)',remove_true_form:'3형태 해제',remove_fourth_form:'4형태 해제',max_talents:'본능 최대',remove_talents:'본능 제거',cat_guide:'도감 등록',remove_cat_guide:'도감 제거',storage_add:'저장고 추가'};
 const STORY={story_clear:'스토리 클리어',treasures:'보물',outbreaks:'좀비 스테이지',timed_scores:'타임 스코어'};
 const INVENTORY={catfruit:'개다래 열매·씨앗',catamins:'고양이 드링크',catseyes:'캣츠아이',base_materials:'성 재료',battle_items:'배틀 아이템',treasure_chests:'보물상자',labyrinth_medals:'미궁 훈장'};
 const MAPS={sol:'레전드 스토리',event:'이벤트 맵',collab:'콜라보 맵',uncanny:'신 레전드 스토리',catamin_stages:'캣츠아이 스테이지',towers:'냥코탑',gauntlets:'강습',collab_gauntlets:'콜라보 강습',behemoth_culling:'초수 토벌',clear_enigma_stages:'수수께끼 스테이지',legend_quest:'레전드 퀘스트',zero_legends:'제로 레전드',dojo_catclaw_championships:'냥코 도장 대회'};

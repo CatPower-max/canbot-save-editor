@@ -16,7 +16,7 @@ const MAX_WORDS=new Set(['max','all','최대','전부','최댓값','最大','全
 const fmt=v=>typeof v==='number'?v.toLocaleString('en-US'):String(v);
 const ITEMS=['catfood','xp','normal_tickets','rare_tickets','platinum_tickets','legend_tickets','platinum_shards','np','leadership'];
 const EN={catfood:'Cat Food',xp:'XP',normal_tickets:'Cat Tickets',rare_tickets:'Rare Tickets',platinum_tickets:'Platinum Tickets',legend_tickets:'Legend Tickets',platinum_shards:'Platinum Shards',np:'NP',leadership:'Leadership',
-  unlock:'Unlock',remove:'Remove',set_level:'Set level',max_upgrade:'Max upgrade',max_base_plus:'Max base and plus',upgrade_by:'Level up by',true_form:'True form',fourth_form:'Ultra form',remove_true_form:'Remove true form',remove_fourth_form:'Remove ultra form',
+  unlock:'Unlock',remove:'Remove',set_level:'Set level',max_upgrade:'Max upgrade',max_base_plus:'Max base and plus',upgrade_by:'Level up by',true_form:'True form',fourth_form:'Ultra form',force_true_form:'True form (forced)',force_fourth_form:'Ultra form (forced)',remove_true_form:'Remove true form',remove_fourth_form:'Remove ultra form',
   max_talents:'Max talents',remove_talents:'Remove talents',cat_guide:'Add to Cat Guide',remove_cat_guide:'Remove from Cat Guide',storage_add:'Add to storage',
   story_clear:'Clear story',treasures:'Treasures',outbreaks:'Zombie outbreaks',timed_scores:'Timed scores',
   catfruit:'Catfruit and seeds',catamins:'Catamins',catseyes:"Catseyes",base_materials:'Base materials',battle_items:'Battle items',treasure_chests:'Treasure chests',labyrinth_medals:'Labyrinth medals',
@@ -28,7 +28,7 @@ const EN={catfood:'Cat Food',xp:'XP',normal_tickets:'Cat Tickets',rare_tickets:'
   max_all:'Max all items',max_account:'Max account',special_skills:'Max special skills',clear_to_japan:'Clear to Japan',playtime:'Play time',gacha_seed:'Gacha seed',score:'Score'};
 // Japanese and Traditional Chinese names of the same features (common in-game wording; corrections welcome).
 const JA={catfood:'ネコカン',xp:'XP',normal_tickets:'ネコチケット',rare_tickets:'レアチケット',platinum_tickets:'プラチナチケット',legend_tickets:'レジェンドチケット',platinum_shards:'プラチナのかけら',np:'NP',leadership:'リーダーシップ',
-  unlock:'入手',remove:'削除',set_level:'レベル設定',max_upgrade:'最大強化',max_base_plus:'基本+プラス最大',upgrade_by:'レベルを上げる',true_form:'第3形態',fourth_form:'第4形態',remove_true_form:'第3形態を解除',remove_fourth_form:'第4形態を解除',
+  unlock:'入手',remove:'削除',set_level:'レベル設定',max_upgrade:'最大強化',max_base_plus:'基本+プラス最大',upgrade_by:'レベルを上げる',true_form:'第3形態',fourth_form:'第4形態',force_true_form:'第3形態 (強制)',force_fourth_form:'第4形態 (強制)',remove_true_form:'第3形態を解除',remove_fourth_form:'第4形態を解除',
   max_talents:'本能を最大',remove_talents:'本能を解除',cat_guide:'キャラ図鑑に登録',remove_cat_guide:'キャラ図鑑から削除',storage_add:'ネコ部屋(保管庫)に追加',
   story_clear:'ストーリークリア',treasures:'お宝',outbreaks:'ゾンビステージ',timed_scores:'タイムスコア',
   catfruit:'マタタビ・種',catamins:'ネコビタン',catseyes:'ネコの目',base_materials:'城の素材',battle_items:'バトルアイテム',treasure_chests:'宝箱',labyrinth_medals:'迷宮の勲章',
@@ -39,7 +39,7 @@ const JA={catfood:'ネコカン',xp:'XP',normal_tickets:'ネコチケット',rar
   fix_gamatoto_crash:'ガマトトの不具合修復',fix_ototo_crash:'オトートの不具合修復',fix_time_errors:'時間エラーの修復',fix_officer_pass_crash:'にゃんこ会員の不具合修復',unlock_equip_menu:'装備メニューを解放',restart_pack:'リスタートパックを設定',reset_gambling_events:'ギャンブルイベントを初期化',reset_golden_cat_cpus:'ゴールデンネコCPUを初期化',unlock_aku_realm:'悪魔の領域を解放',filibuster_reclearing:'フィリバスター再クリア',
   max_all:'すべてのアイテムを最大',max_account:'アカウント最大',special_skills:'特殊能力を最大',clear_to_japan:'日本編までクリア',playtime:'プレイ時間',gacha_seed:'ガチャシード',score:'スコア'};
 const ZH={catfood:'貓罐頭',xp:'XP',normal_tickets:'貓咪券',rare_tickets:'稀有轉蛋券',platinum_tickets:'白金轉蛋券',legend_tickets:'傳說轉蛋券',platinum_shards:'白金碎片',np:'NP',leadership:'統率力',
-  unlock:'取得',remove:'刪除',set_level:'設定等級',max_upgrade:'強化到最大',max_base_plus:'基本+加值最大',upgrade_by:'提升等級',true_form:'第三型態',fourth_form:'第四型態',remove_true_form:'解除第三型態',remove_fourth_form:'解除第四型態',
+  unlock:'取得',remove:'刪除',set_level:'設定等級',max_upgrade:'強化到最大',max_base_plus:'基本+加值最大',upgrade_by:'提升等級',true_form:'第三型態',fourth_form:'第四型態',force_true_form:'第三型態（強制）',force_fourth_form:'第四型態（強制）',remove_true_form:'解除第三型態',remove_fourth_form:'解除第四型態',
   max_talents:'本能最大',remove_talents:'解除本能',cat_guide:'登錄角色圖鑑',remove_cat_guide:'從角色圖鑑移除',storage_add:'加入保管庫',
   story_clear:'故事通關',treasures:'寶物',outbreaks:'殭屍關卡',timed_scores:'時間分數',
   catfruit:'木天蓼・種子',catamins:'貓薄荷飲料',catseyes:'貓眼石',base_materials:'城堡素材',battle_items:'戰鬥道具',treasure_chests:'寶箱',labyrinth_medals:'迷宮勳章',
@@ -50,9 +50,20 @@ const ZH={catfood:'貓罐頭',xp:'XP',normal_tickets:'貓咪券',rare_tickets:'�
   fix_gamatoto_crash:'修復喵喵探險隊錯誤',fix_ototo_crash:'修復弟弟錯誤',fix_time_errors:'修復時間錯誤',fix_officer_pass_crash:'修復貓咪會員錯誤',unlock_equip_menu:'解鎖裝備選單',restart_pack:'設定重新開始包',reset_gambling_events:'重設賭博活動',reset_golden_cat_cpus:'重設黃金貓 CPU',unlock_aku_realm:'解鎖惡魔領域',filibuster_reclearing:'重新通關阻撓關卡',
   max_all:'所有道具最大',max_account:'帳號最大',special_skills:'特殊能力最大',clear_to_japan:'通關到日本篇',playtime:'遊玩時間',gacha_seed:'轉蛋種子',score:'分數'};
 const MAPS=Object.keys(LABELS.MAPS),INVENTORIES=Object.keys(LABELS.INVENTORY),COLLECTIONS=Object.keys(LABELS.COLLECTIONS);
-const CAT_OPS=['unlock','true_form','fourth_form','max_upgrade','max_base_plus','set_level','upgrade_by','max_talents','cat_guide','storage_add','remove_true_form','remove_fourth_form','remove_talents','remove_cat_guide','remove'];
+const CAT_OPS=['unlock','true_form','fourth_form','force_true_form','force_fourth_form','max_upgrade','max_base_plus','set_level','upgrade_by','max_talents','cat_guide','storage_add','remove_true_form','remove_fourth_form','remove_talents','remove_cat_guide','remove'];
 const EXPEDITIONS=['xp','level','helpers','engineers','cannon_levels','cannon_development','shrine_level','shrine_xp','shrine_appear','shrine_disappear'];
 const EXTRAS=Object.keys(LABELS.EXTRA),SIMPLES=Object.keys(LABELS.SIMPLE);
+// Names other editors use (and a few common words) for the same features, for the feature search.
+const SEARCH_ALIASES={story_clear:['clear_story','clear story'],treasures:['story_treasures'],timed_scores:['itf_timed_scores'],outbreaks:['zombie'],
+  max_talents:['talents','upgrade_talents','본능'],remove_talents:['talents','본능'],unlock:['unlock_cats','unlock_remove_cats'],remove:['unlock_remove_cats','remove_cats'],
+  max_upgrade:['upgrade_cats','upgrade'],set_level:['upgrade_cats','level'],force_true_form:['force_true_form_cats'],force_fourth_form:['force_fourth_form_cats'],
+  true_form:['true_form_remove_form_cats'],fourth_form:['fourth_form_remove_form_cats'],cat_guide:['unlock_remove_cat_guide'],remove_cat_guide:['unlock_remove_cat_guide'],
+  helpers:['gamatoto_helpers'],level:['gamatoto_xp_level','gamatoto_level'],xp:['gamatoto_xp_level'],cannon_levels:['ototo_cat_cannon','cat_cannon','cannon'],cannon_development:['ototo_cat_cannon','cannon'],
+  shrine_level:['cat_shrine'],shrine_xp:['cat_shrine'],shrine_appear:['cat_shrine'],shrine_disappear:['cat_shrine'],engineers:['ototo'],
+  slots:['unlocked_slots','lineup'],rank_rewards:['user_rank_rewards','user rank'],gold_add:['gold_pass','nyanko_club'],gold_remove:['gold_pass','nyanko_club'],aku:['aku_chapters'],
+  rare_trade:['rare_ticket_trade'],endless:['battle_items_endless'],enigma:['add_enigma_stages'],clear_enigma_stages:['enigma'],unlock_aku_realm:['aku_realm'],
+  gacha_seed:['rare_gatya_seed','normal_gatya_seed','event_gatya_seed','gatya','seed'],score:['dojo_score','challenge_score','dojo','challenge'],playtime:['play time'],
+  max_all:['max all'],max_account:['max account'],storage:['cat storage'],storage_add:['cat storage']};
 const ALL_LABELS=Object.assign({},...Object.values(LABELS));
 
 // Comma or space separated numbers and ranges: "1-5, 8 10". Returns null for anything else.
@@ -91,7 +102,7 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
   async function pickEntries(title,entries,{max=5000,show=e=>`${e.id}) ${e.name}`}={}){
     const ids=new Set(entries.map(e=>Number(e.id)));
     say('');say(`${title} (${entries.length})`);
-    say(L('  all = 전부 · 번호 예: 0-5, 8 · /검색어 · l = 목록 보기','  all = everything · ids like 0-5, 8 · /word to search · l = list','  all = すべて · 番号 例: 0-5, 8 · /単語 で検索 · l = 一覧','  all = 全部 · 編號 例: 0-5, 8 · /關鍵字 搜尋 · l = 列表'));
+    say(L('  all = 전부 · 번호 예: 0-5, 8 · /검색어 · l = 목록 보기 · exit = 뒤로','  all = everything · ids like 0-5, 8 · /word to search · l = list · exit = back','  all = すべて · 番号 例: 0-5, 8 · /単語 で検索 · l = 一覧 · exit = 戻る','  all = 全部 · 編號 例: 0-5, 8 · /關鍵字 搜尋 · l = 列表 · exit = 返回'));
     for(;;){
       const a=await ask('> ');
       if(a==='l'){entries.slice(0,500).forEach(e=>say('  '+show(e)));if(entries.length>500)say(L(`  ...외 ${entries.length-500}개 (/검색어로 찾으세요)`,`  ...${entries.length-500} more (search with /word)`,`  ...ほか${entries.length-500}件 (/単語 で検索してください)`,`  ...還有 ${entries.length-500} 項（請用 /關鍵字 搜尋）`));continue;}
@@ -149,17 +160,19 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
       chosen=next==='narrow'?new Set(ids.filter(id=>more.has(id))):new Set([...ids,...more]);
     }
   }
-  async function cats(){
+  async function cats(preset=null){
     const ops=CAT_OPS.filter(op=>allowed({type:'cat',operation:op}));if(!ops.length)throw new Error(L('관리자가 고양이 편집을 꺼 두었습니다.','Cat edits are turned off.','キャラの編集は管理者により無効になっています。','角色編輯已被管理員關閉。'));
     // Several actions for the same cats in one go (e.g. 1,2,5 = unlock, true form, max level), applied in menu order.
-    say('');say(L('고양이 작업 (여러 개 가능, 예: 1,2,5)','Cat actions (several allowed, e.g. 1,2,5)','キャラの操作 (複数可、例: 1,2,5)','角色操作（可多選，例: 1,2,5）'));ops.forEach((op,k)=>say(`  ${k+1}) ${label(op)}`));say(`  0) ${L('← 돌아가기','← Back','← 戻る','← 返回')}`);
-    let picked;for(;;){const a=await ask('> ');if(a==='0')throw Object.assign(new Error('back'),{code:'BACK'});const n=parseNumbers(a);if(n&&n.length&&n.every(x=>x>=1&&x<=ops.length)){picked=[...new Set(n)].sort((x,y)=>x-y).map(x=>ops[x-1]);break;}say(L('목록에 있는 번호를 입력하세요.','Enter numbers from the list.','一覧にある番号を入力してください。','請輸入列表中的編號。'));}
+    let picked=preset&&ops.includes(preset)?[preset]:null;
+    if(!picked){say('');say(L('고양이 작업 (여러 개 가능, 예: 1,2,5)','Cat actions (several allowed, e.g. 1,2,5)','キャラの操作 (複数可、例: 1,2,5)','角色操作（可多選，例: 1,2,5）'));ops.forEach((op,k)=>say(`  ${k+1}) ${label(op)}`));say(`  0) ${L('← 돌아가기','← Back','← 戻る','← 返回')}`);
+    for(;;){const a=await ask('> ');if(a==='0')throw Object.assign(new Error('back'),{code:'BACK'});const n=parseNumbers(a);if(n&&n.length&&n.every(x=>x>=1&&x<=ops.length)){picked=[...new Set(n)].sort((x,y)=>x-y).map(x=>ops[x-1]);break;}say(L('목록에 있는 번호를 입력하세요.','Enter numbers from the list.','一覧にある番号を入力してください。','請輸入列表中的編號。'));}}
     const catIds=await catTargets(),out=[];
     for(const op of picked){
       const edit={type:'cat',operation:op,catIds};
       if(op==='set_level'){const m=meta({action:'cat_level_metadata',catIds});const baseMax=ownerCap(m.baseMax,limits.catBase),plusMax=ownerCap(m.plusMax,limits.catPlus);
         edit.base=await askNumber(L('기본 레벨','Base level','基本レベル','基本等級'),1,baseMax);edit.plus=plusMax>0?await askNumber(L('플러스 레벨','Plus level','プラスレベル','加值等級'),0,plusMax):0;}
       if(op==='upgrade_by'||op==='storage_add')edit.amount=await askNumber(op==='upgrade_by'?L('올릴 레벨','Levels to add','上げるレベル','要提升的等級'):L('넣을 개수','Amount','数','數量'),1,Number(limits.catUpgradeAmount)||100000);
+      if((op==='force_true_form'||op==='force_fourth_form')&&!(await yes(L('강제 형태는 게임 데이터에 그 형태가 없는 고양이에게도 형태 값을 넣습니다. 게임에서 이상하게 보일 수 있습니다. 계속할까요?','A forced form sets the form even for cats whose game data has no such form. It can look wrong in the game. Continue?','強制形態は、ゲームデータにその形態がないキャラにも形態の値を入れます。ゲームで不自然に見えることがあります。続けますか？','強制型態會為遊戲資料中沒有該型態的角色也設定型態值，在遊戲中可能顯示異常。要繼續嗎？'))))continue;
       if(op==='remove'&&!(await yes(L(`고양이 ${catIds.length}마리를 삭제합니다. 계속할까요?`,`Remove ${catIds.length} cats?`,`キャラ${catIds.length}体を削除します。続けますか？`,`將刪除 ${catIds.length} 隻角色。要繼續嗎？`))))continue;
       out.push(edit);
     }
@@ -171,8 +184,9 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
     return ITEMS.map(name=>{const game=maxed(()=>items.limit(save,name));return game==null||!(name in values)?null:{name,current:values[name],max:ownerCap(game,limits.items?.[name])};}).filter(Boolean);
   }
   // One item, several (1,3-5) or all; several take one value or max (each its own highest value). Returns edits.
-  async function itemsMenu(){
-    const rows=itemRows();if(!rows.length)throw new Error(L('이 SAVE에는 바꿀 아이템이 없습니다.','This SAVE has no items to change.','このセーブには変更できるアイテムがありません。','此存檔沒有可變更的道具。'));
+  async function itemsMenu(only=null){
+    const rows=itemRows().filter(r=>!only||r.name===only);if(!rows.length)throw new Error(L('이 SAVE에는 바꿀 아이템이 없습니다.','This SAVE has no items to change.','このセーブには変更できるアイテムがありません。','此存檔沒有可變更的道具。'));
+    if(only&&rows.length===1){const r=rows[0];return [{type:'item',item:r.name,value:await askNumber(label(r.name),0,r.max,{current:r.current})}];}
     say('');say(L('아이템  [현재 / 최대]','Items  [now / max]','アイテム  [現在 / 最大]','道具  [目前 / 最大]'));
     rows.forEach((r,i)=>say(`  ${i+1}) ${label(r.name)}  [${fmt(r.current)} / ${fmt(r.max)}]`));
     say(`  0) ${L('← 돌아가기','← Back','← 戻る','← 返回')}`);
@@ -190,14 +204,14 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
       return chosen.map(r=>({type:'item',item:r.name,value:v}));
     }
   }
-  async function inventory(){
-    const name=INVENTORIES[await choose(L('보관함','Inventory','所持品','持有物品'),INVENTORIES.map(label))],m=meta({action:'inventory_metadata',inventory:name});
+  async function inventory(preset=null){
+    const name=preset||INVENTORIES[await choose(L('보관함','Inventory','所持品','持有物品'),INVENTORIES.map(label))],m=meta({action:'inventory_metadata',inventory:name});
     const ids=await pickEntries(label(name),m.entries,{show:e=>`${e.id}) ${e.name}${e.value!==undefined?` [${e.value}]`:''}`});
     return {type:'inventory',inventory:name,ids,value:await askNumber(L('개수','Amount','数','數量'),0,m.maximum)};
   }
-  async function storyMenu(){
+  async function storyMenu(preset=null){
     const kinds=['story_clear','treasures','outbreaks','timed_scores'].filter(t=>allowed({type:t}));if(!kinds.length)throw new Error(L('관리자가 스토리 편집을 꺼 두었습니다.','Story edits are turned off.','ストーリーの編集は管理者により無効になっています。','故事編輯已被管理員關閉。'));
-    const type=kinds[await choose(L('스토리','Story','ストーリー','故事'),kinds.map(label))],m=meta({action:'metadata'});
+    const type=kinds.includes(preset)?preset:kinds[await choose(L('스토리','Story','ストーリー','故事'),kinds.map(label))],m=meta({action:'metadata'});
     const eligible=m.chapters.filter(c=>(type!=='timed_scores'||Number(c.group)===1)&&(type!=='outbreaks'||c.outbreakStages?.length));
     const chapters=await pickEntries(L('챕터','Chapters','章','章節'),eligible);
     const count=Math.min(...eligible.filter(c=>chapters.includes(Number(c.id))).map(c=>c.stages.length));
@@ -207,8 +221,8 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
     else edit.value=await askNumber(type==='treasures'?L('보물 등급 (0 없음, 1 동, 2 은, 3 금)','Treasure grade (0 none, 1 bronze, 2 silver, 3 gold)','お宝のランク (0 なし、1 銅、2 銀、3 金)','寶物等級（0 無、1 銅、2 銀、3 金）'):type==='timed_scores'?L('점수','Score','スコア','分數'):L('클리어 횟수','Clear count','クリア回数','通關次數'),0,type==='treasures'?m.treasureMax:type==='timed_scores'?m.scoreMax:m.clearMax);
     return edit;
   }
-  async function maps(){
-    const category=MAPS[await choose(L('스테이지 종류','Stage group','ステージの種類','關卡類型'),MAPS.map(label))],m=meta({action:'map_metadata',category});
+  async function maps(preset=null){
+    const category=preset||MAPS[await choose(L('스테이지 종류','Stage group','ステージの種類','關卡類型'),MAPS.map(label))],m=meta({action:'map_metadata',category});
     if(!m.maps.length)throw new Error(L('이 SAVE에는 이 종류의 맵이 없습니다.','This SAVE has no maps of this kind.','このセーブにはこの種類のマップがありません。','此存檔沒有這類地圖。'));
     const mapIds=await pickEntries(label(category),m.maps),chosen=m.maps.filter(x=>mapIds.includes(Number(x.id)));
     const crowns=Math.min(...chosen.map(x=>x.stageCounts.length));
@@ -218,9 +232,9 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
     const amount=clear?await askNumber(L('클리어 횟수','Clear count','クリア回数','通關次數'),1,m.clearMax):0;
     return {type:mapIds.length===1?'map':'map_batch',category,mapIds,mapId:mapIds[0],mapName:chosen[0]?.name||'',star,mode,stages,clear,amount};
   }
-  async function collections(){
+  async function collections(preset=null){
     const names=COLLECTIONS.filter(c=>allowed({type:'collection',collection:c}));
-    const collection=names[await choose(L('수집 항목','Collection','収集項目','收集項目'),names.map(label))],m=meta({action:'collection_metadata',collection});
+    const collection=names.includes(preset)?preset:names[await choose(L('수집 항목','Collection','収集項目','收集項目'),names.map(label))],m=meta({action:'collection_metadata',collection});
     if(!m.entries.length)throw new Error(L('바꿀 항목이 없습니다.','Nothing to change here.','変更できる項目がありません。','沒有可變更的項目。'));
     const ids=await pickEntries(label(collection),m.entries,{show:e=>`${e.id}) ${e.name}${e.value!==undefined?` [${e.value}]`:''}`}),edit={type:'collection',collection,ids};
     if(m.actions){const keys=Object.keys(m.actions);const action=keys[await choose(L('작업','Action','操作','操作'),keys.map(k=>m.actions[k]))];return {...edit,action,actionLabel:m.actions[action]};}
@@ -229,8 +243,8 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
     if(m.duration){say(L('남은 시간(초)을 입력하세요. 무제한은 infinity','Enter seconds left, or infinity','残り秒数を入力してください。無制限は infinity','請輸入剩餘秒數。無限制請輸入 infinity'));for(;;){const a=(await ask('> ')).toLowerCase();if(a==='infinity')return {...edit,value:'infinity'};const n=Number(a);if(Number.isFinite(n)&&n>=0)return {...edit,value:n};}}
     return {...edit,value:await askNumber(L('값','Value','値','數值'),0,Number.isSafeInteger(m.maximum)?m.maximum:2147483647)};
   }
-  async function expedition(){
-    const operation=EXPEDITIONS[await choose(L('가마토토 · 오토토 · 고양이 신사','Gamatoto, Ototo and Cat Shrine','ガマトト・オトート・ネコ神社','喵喵探險隊・弟弟・貓咪神社'),EXPEDITIONS.map(label))],m=meta({action:'expedition_metadata'}),edit={type:'expedition',operation};
+  async function expedition(preset=null){
+    const operation=preset||EXPEDITIONS[await choose(L('가마토토 · 오토토 · 고양이 신사','Gamatoto, Ototo and Cat Shrine','ガマトト・オトート・ネコ神社','喵喵探險隊・弟弟・貓咪神社'),EXPEDITIONS.map(label))],m=meta({action:'expedition_metadata'}),edit={type:'expedition',operation};
     if(operation==='shrine_appear'||operation==='shrine_disappear')return edit;
     if(operation==='helpers'){const counts=[];let left=m.maxHelpers;for(let i=0;i<m.rarities.length;i++){const n=await askNumber(m.rarities[i],0,Math.min(m.rarityCounts[i],left));counts.push(n);left-=n;}return {...edit,counts};}
     if(operation==='cannon_levels'||operation==='cannon_development'){
@@ -243,15 +257,16 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
     if(operation.startsWith('shrine_')){const s=meta({action:'shrine_metadata'});max=operation==='shrine_level'?s.shrineLevelMax:s.shrineXpMax;if(operation==='shrine_level')min=1;}
     edit.value=await askNumber(label(operation),min,max);return edit;
   }
-  async function extras(){
-    const operation=EXTRAS[await choose(L('기타','Other','その他','其他'),EXTRAS.map(label))],m=meta({action:'extra_metadata',operation}),edit={type:'extra',operation,note:String(m.note||'').slice(0,300)};
+  async function extras(preset=null){
+    const operation=preset||EXTRAS[await choose(L('기타','Other','その他','其他'),EXTRAS.map(label))],m=meta({action:'extra_metadata',operation}),edit={type:'extra',operation,note:String(m.note||'').slice(0,300)};
     if(m.noteKo||m.note)say(en()?m.note:m.noteKo||m.note);
     for(const f of m.fields||[])edit[f.id]=await askNumber(en()?f.name:f.nameKo||f.name,0,f.max);
     return edit;
   }
-  async function account(){
+  async function account(preset=null){
     const opts=[['playtime'],['gacha_seed'],['score'],['clear_to_japan'],['special_skills'],...SIMPLES.map(s=>['simple',s])].filter(([t,s])=>allowed(s?{type:t,operation:s}:{type:t}));
-    const [type,operation]=opts[await choose(L('계정 · 복구','Account and fixes','アカウント・修復','帳號・修復'),opts.map(([t,s])=>label(s||t)))];
+    const found=preset&&opts.find(([t,s])=>(s||t)===preset);
+    const [type,operation]=found||opts[await choose(L('계정 · 복구','Account and fixes','アカウント・修復','帳號・修復'),opts.map(([t,s])=>label(s||t)))];
     if(type==='simple')return {type,operation};
     if(type==='playtime')return {type,hours:await askNumber(L('시간','Hours','時間','小時'),0,19000),minutes:await askNumber(L('분','Minutes','分','分'),0,59),seconds:await askNumber(L('초','Seconds','秒','秒'),0,59)};
     if(type==='gacha_seed'){const seed=['rare','normal','event'][await choose(L('가챠 시드','Gacha seed','ガチャシード','轉蛋種子'),[L('레어 가챠','Rare','レアガチャ','稀有轉蛋'),L('노멀 가챠','Normal','ノーマルガチャ','普通轉蛋'),L('이벤트 가챠','Event','イベントガチャ','活動轉蛋')])];return {type,seed,value:await askNumber(L('시드 값','Seed','シード値','種子值'),0,4294967295)};}
@@ -286,6 +301,39 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
       return edit;
     }
   }
+  // Feature search: every detailed feature by its name in any of the four languages, its key, or a name people know
+  // from other editors. One hit opens it directly; several are listed.
+  const GROUPS={item:L('아이템','Items','アイテム','道具'),inventory:L('보관함','Inventory','所持品','持有物品'),cat:L('고양이','Cats','キャラ','角色'),story:L('스토리','Story','ストーリー','故事'),
+    map:L('스테이지 맵','Stage maps','ステージマップ','關卡地圖'),collection:L('수집','Collections','収集','收集'),expedition:L('가마토토 · 오토토 · 신사','Gamatoto, Ototo, Shrine','ガマトト・オトート・神社','喵喵探險隊・弟弟・神社'),
+    extra:L('기타','Other','その他','其他'),account:L('계정 · 복구','Account and fixes','アカウント・修復','帳號・修復'),max:L('최대','Max','最大','最大')};
+  function features(){
+    const list=[],add=(key,group,probe,run)=>{if(allowed(probe))list.push({key,group,run});};
+    for(const n of ITEMS)add(n,'item',{type:'item',item:n},()=>itemsMenu(n));
+    for(const n of INVENTORIES)add(n,'inventory',{type:'inventory',inventory:n},()=>inventory(n));
+    for(const op of CAT_OPS)add(op,'cat',{type:'cat',operation:op},()=>cats(op));
+    for(const t of ['story_clear','treasures','outbreaks','timed_scores'])add(t,'story',{type:t},()=>storyMenu(t));
+    for(const c of MAPS)add(c,'map',{type:'map',category:c},()=>maps(c));
+    for(const c of COLLECTIONS)add(c,'collection',{type:'collection',collection:c},()=>collections(c));
+    for(const o of EXPEDITIONS)add(o,'expedition',{type:'expedition',operation:o},()=>expedition(o));
+    for(const o of EXTRAS)add(o,'extra',{type:'extra',operation:o},()=>extras(o));
+    for(const t of ['playtime','gacha_seed','score','clear_to_japan','special_skills'])add(t,'account',{type:t},()=>account(t));
+    for(const o of SIMPLES)add(o,'account',{type:'simple',operation:o},()=>account(o));
+    add('max_all','max',{type:'max_all'},async()=>({type:'max_all'}));add('max_account','max',{type:'max_account'},maxAccount);
+    return list;
+  }
+  const norm=s=>String(s??'').toLowerCase().replace(/[\s_\-·・()（）]/g,'');
+  const namesOf=key=>[key,ALL_LABELS[key],EN[key],JA[key],ZH[key],...(SEARCH_ALIASES[key]||[])].filter(Boolean);
+  // {edit} (an edit or a list), {none: true} when nothing matches. Backing out of the list throws BACK.
+  async function find(query){
+    const q=norm(query);if(!q)return {none:true};
+    const hits=features().filter(f=>namesOf(f.key).some(n=>norm(n).includes(q)));
+    if(!hits.length)return {none:true};
+    const f=hits.length===1?hits[0]:hits[await choose(L(`"${query}" 검색 결과`,`Results for "${query}"`,`「${query}」の検索結果`,`「${query}」的搜尋結果`),hits.map(h=>`${label(h.key)}  (${GROUPS[h.group]})`))];
+    if(hits.length===1)say(L(`→ ${label(f.key)} (${GROUPS[f.group]})`,`→ ${label(f.key)} (${GROUPS[f.group]})`,`→ ${label(f.key)} (${GROUPS[f.group]})`,`→ ${label(f.key)} (${GROUPS[f.group]})`));
+    const edit=await f.run();
+    if(edit&&[].concat(edit).some(e=>!allowed(e)))throw new Error(L('관리자가 이 기능을 꺼 두었습니다.','This feature is turned off by an administrator.','この機能は管理者により無効になっています。','此功能已被管理員關閉。'));
+    return {edit};
+  }
   function describe(e){
     const n=v=>typeof v==='number'?v.toLocaleString():String(v);
     if(e.type==='item'){const before=items.itemValues(save)[e.item];return Number.isFinite(before)&&before!==e.value?`${label(e.item)} ${n(before)} → ${n(e.value)}`:`${label(e.item)} = ${n(e.value)}`;}
@@ -301,6 +349,6 @@ function createMenus({ui,save,gd,names=null,policy={},access={},limits={},extend
     if(e.type==='gacha_seed'||e.type==='score')return `${label(e.type)} ${e.seed||e.score} = ${n(e.value)}`;
     return label(e.type);
   }
-  return {pick,describe,allowed,itemRows,label};
+  return {pick,describe,allowed,itemRows,label,find};
 }
 module.exports={createMenus,parseNumbers,EN,MAX_WORDS};
