@@ -7,7 +7,7 @@
 // Usage: node tools/local/build.js [--check]   (--check fails when the built file is out of date)
 const fs=require('node:fs'),path=require('node:path');
 const ROOT=path.join(__dirname,'..','..'),OUT=path.join(ROOT,'web','local','canbot.js');
-const files=[...fs.readdirSync(path.join(ROOT,'src','canbot-engine')).filter(f=>f.endsWith('.js')&&!['server.js','json-diff.js'].includes(f)).sort().map(f=>`src/canbot-engine/${f}`),'src/edit-labels.js','src/feature-policy.js','tools/local/menus.js','tools/local/cli.js'];
+const files=[...fs.readdirSync(path.join(ROOT,'src','canbot-engine')).filter(f=>f.endsWith('.js')&&!['server.js','json-diff.js','authority.js','quota.js','summaries.js'].includes(f)).sort().map(f=>`src/canbot-engine/${f}`),'src/edit-labels.js','src/feature-policy.js','tools/local/labels-extra.js','tools/local/menus.js','tools/local/cli.js'];
 
 function build(){
   const mods=files.map(f=>{

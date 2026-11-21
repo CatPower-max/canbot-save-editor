@@ -60,7 +60,8 @@ function applyOne(save,gd,edit,opts){
   if(t==='score')return misc.setScore(save,edit);
   throw fail('UNSUPPORTED_EDIT',`Unsupported edit type: ${t}`);
 }
-// opts: {now: () => seconds, random: () => [0,1)}.
+// opts: {now: () => seconds, random: () => [0,1), onResult(edit, result): each edit's return value (the talent
+// members a max_talents step or Max Account applied, for the SAVE result)}.
 function applyEdits(save,gd,edits,settings={},opts={}){
   const o={now:opts.now||(()=>Date.now()/1000),random:opts.random||Math.random};
   const touched=new Set();for(const e of edits){if(BROAD.has(e.type))MANAGED.forEach(n=>touched.add(n));else if(e.type==='item'&&MANAGED.includes(e.item))touched.add(e.item);}
@@ -71,7 +72,7 @@ function applyEdits(save,gd,edits,settings={},opts={}){
     // Settings: the edit's own or the request's, one edit at a time.
     settingsModule.use(settingsModule.fromSession(e.settings||settings),()=>{
       if(claim)claimRankRewards(save,gd);
-      applyOne(save,gd,e,o);
+      const result=applyOne(save,gd,e,o);if(opts.onResult)opts.onResult(e,result);
       if(claim)claimRankRewards(save,gd);
     });
   }

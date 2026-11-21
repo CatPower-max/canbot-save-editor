@@ -58,6 +58,11 @@ node web/local/canbot.js       # run it
 It can load a save from transfer codes or from a rooted device's `SAVE_DATA`, edit it,
 and upload it back for new transfer codes.
 
+Languages: Korean, English, Japanese, Traditional Chinese, Spanish, French, German, Italian
+and Thai (chosen on first start, changeable in Settings). Translations live in
+`tools/local/translations.txt` and `tools/local/translations-extra.json`; `node tools/local/i18n.js`
+adds them to the source. Corrections from native players are welcome.
+
 > **Note:** the local editor is the client of a hosted CanBot service — it asks a server
 > for sign-in, game data and a save quota. Running it against your own server requires a
 > compatible backend, which is **not** included in this repository. The **engine**
